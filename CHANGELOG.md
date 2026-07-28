@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/Locko2901/vane/compare/v1.1.0...v1.1.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* use Express 5 named wildcard for SPA catch-all route ([aa59a74](https://github.com/Locko2901/vane/commit/aa59a74d10a344ad866f2c3391dc9b307e7148d0))
+
 ## [1.1.0](https://github.com/Locko2901/vane/compare/v1.0.0...v1.1.0) (2026-07-28)
 
 
