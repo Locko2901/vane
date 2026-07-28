@@ -1,0 +1,10 @@
+/vane-data/
+
+/cloudflare-ddns/
+*.env
+
+**/node_modules/
+**/dist/
+**/public/
+*.log
+.env

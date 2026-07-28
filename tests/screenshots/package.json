@@ -1,0 +1,13 @@
+{
+  "name": "vane-screenshots",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic Playwright screenshot generator for the Vane UI.",
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

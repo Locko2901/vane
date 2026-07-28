@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: README & setup guide
+    url: https://github.com/Locko2901/vane/blob/main/README.md
+    about: Quick start, environment variables, migrating an existing setup, and security notes are documented here.
+  - name: Questions & usage help
+    url: https://github.com/Locko2901/vane/discussions
+    about: For "how do I…" questions and general usage, start a discussion instead of an issue.

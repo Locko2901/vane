@@ -1,0 +1,22 @@
+services:
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    restart: unless-stopped
+
+  vane:
+    build: ./vane
+    image: ${VANE_IMAGE:-ghcr.io/locko2901/vane:local}
+    container_name: vane
+    restart: unless-stopped
+    ports:
+      - "${DDNS_PORT:-8088}:3000"
+    environment:
+      - DDNS_CONTAINER=cloudflare-ddns
+    volumes:
+      - ./cloudflare-ddns:/ddns-config
+      - ./vane-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - cloudflare-ddns
+

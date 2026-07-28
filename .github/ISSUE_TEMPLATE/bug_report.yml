@@ -1,0 +1,83 @@
+name: Bug report
+description: Something isn't working the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A clear, reproducible report
+        is worth its weight in gold - it's usually the difference between a fix
+        and a "can't reproduce".
+
+        Before filing, please skim the
+        [README](https://github.com/Locko2901/vane/blob/main/README.md) -
+        many common symptoms (auth failed, zone not found, import not picking up
+        an existing container) are covered under Security notes and
+        "Migrating an existing setup".
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I read the [README](https://github.com/Locko2901/vane/blob/main/README.md) and didn't find a fix.
+          required: true
+        - label: I searched [existing issues](https://github.com/Locko2901/vane/issues) and this isn't a duplicate.
+          required: true
+        - label: I'm on the latest release (or `main`).
+          required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you tried, what actually happened, and what you expected instead.
+      placeholder: |
+        I added a host and clicked Save & Restart. The DDNS instance stayed stopped
+        and the dashboard showed "instance offline".
+        I expected the favonia container to start and sync the record.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps that trigger the bug.
+      placeholder: |
+        1. Open the Hosts page
+        2. Add a host and click "Save & Restart"
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        Relevant lines from the manager container (`./run-docker.sh --logs`) and,
+        if relevant, from a favonia instance (the Logs page).
+        Start with the first error line. **Redact any API tokens.**
+      render: text
+    validations:
+      required: false
+  - type: dropdown
+    id: install
+    attributes:
+      label: How are you running it?
+      options:
+        - Docker image (GHCR - recommended)
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: >
+        App version/tag, host OS and architecture, Docker/Compose version, and any
+        relevant environment variables (**secrets redacted**).
+      placeholder: |
+        Version: v1.2.0 (ghcr.io ... :latest)
+        OS/arch: Ubuntu 24.04, linux/amd64
+        Docker: 27.1.1, Compose v2.29
+        Relevant settings: DDNS_CONTAINER=cloudflare-ddns, DDNS_PORT=8088
+    validations:
+      required: true

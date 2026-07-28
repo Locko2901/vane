@@ -1,0 +1,272 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: |
+            vane/backend/package-lock.json
+            vane/frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: vane/backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: vane/backend
+        run: npx prisma generate --schema ../prisma/schema.prisma
+
+      - name: Lint backend
+        working-directory: vane/backend
+        run: npm run lint
+
+      - name: Install frontend dependencies
+        working-directory: vane/frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: vane/frontend
+        run: npm run lint
+
+  backend:
+    name: Build · Backend (TypeScript)
+    needs: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vane/backend
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: vane/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema ../prisma/schema.prisma
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Build · Frontend (React / Vite)
+    needs: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vane/frontend
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: vane/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  release-please:
+    name: release-please
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [backend, frontend, docker-publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      patch: ${{ steps.release.outputs.patch }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  docker-publish:
+    name: Docker publish (GHCR - dev)
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      # DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Lowercase image name
+        id: img
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Compute image list
+        id: images
+        run: |
+          {
+            echo "list<<EOF"
+            echo "${GHCR_IMAGE}"
+            # if [ -n "${DOCKERHUB_IMAGE}" ]; then echo "docker.io/${DOCKERHUB_IMAGE}"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          GHCR_IMAGE: ${{ steps.img.outputs.name }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Log in to Docker Hub
+      #   if: ${{ vars.DOCKERHUB_IMAGE != '' }}
+      #   uses: docker/login-action@v4
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.images.outputs.list }}
+          tags: |
+            type=sha,format=short
+            type=raw,value=dev
+          labels: |
+            org.opencontainers.image.title=vane
+            org.opencontainers.image.description=Vane — self-hosted web UI for dynamic DNS on Cloudflare (favonia/cloudflare-ddns)
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ./vane
+          file: ./vane/Dockerfile
+          target: runtime
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      # - name: Sync Docker Hub description
+      #   if: ${{ vars.DOCKERHUB_IMAGE != '' }}
+      #   uses: peter-evans/dockerhub-description@v5
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      #     repository: ${{ env.DOCKERHUB_IMAGE }}
+      #     short-description: "Web UI for managing a favonia/cloudflare-ddns container"
+      #     readme-filepath: ./vane/README.md
+
+  docker-publish-release:
+    name: Docker publish (GHCR - release)
+    needs: [release-please, docker-publish]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      # DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Log in to Docker Hub
+      #   if: ${{ vars.DOCKERHUB_IMAGE != '' }}
+      #   uses: docker/login-action@v4
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Retag dev image as release
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          # DOCKERHUB_IMAGE: ${{ env.DOCKERHUB_IMAGE }}
+          SHA: ${{ github.sha }}
+          MAJOR: ${{ needs.release-please.outputs.major }}
+          MINOR: ${{ needs.release-please.outputs.minor }}
+          PATCH: ${{ needs.release-please.outputs.patch }}
+        run: |
+          set -euo pipefail
+          IMAGE="$(echo "${REGISTRY}/${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+          SHORT_SHA="${SHA:0:7}"
+          SRC="${IMAGE}:sha-${SHORT_SHA}"
+          echo "Retagging ${SRC} as release ${MAJOR}.${MINOR}.${PATCH}"
+          tag_args=(
+            --tag "${IMAGE}:${MAJOR}.${MINOR}.${PATCH}"
+            --tag "${IMAGE}:${MAJOR}.${MINOR}"
+            --tag "${IMAGE}:${MAJOR}"
+            --tag "${IMAGE}:latest"
+          )
+          # if [ -n "${DOCKERHUB_IMAGE:-}" ]; then
+          #   echo "Mirroring release to docker.io/${DOCKERHUB_IMAGE}"
+          #   tag_args+=(
+          #     --tag "docker.io/${DOCKERHUB_IMAGE}:${MAJOR}.${MINOR}.${PATCH}"
+          #     --tag "docker.io/${DOCKERHUB_IMAGE}:${MAJOR}.${MINOR}"
+          #     --tag "docker.io/${DOCKERHUB_IMAGE}:${MAJOR}"
+          #     --tag "docker.io/${DOCKERHUB_IMAGE}:latest"
+          #   )
+          # fi
+          docker buildx imagetools create "${tag_args[@]}" "${SRC}"
