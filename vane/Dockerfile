@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS frontend
+FROM node:26-alpine AS frontend
 WORKDIR /app/frontend
 COPY frontend/package.json ./
 RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-FROM node:22-alpine AS backend
+FROM node:26-alpine AS backend
 WORKDIR /app/backend
 RUN apk add --no-cache openssl
 COPY backend/package.json ./
@@ -17,7 +17,7 @@ COPY prisma ./prisma
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
