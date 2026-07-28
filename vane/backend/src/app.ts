@@ -33,7 +33,7 @@ export function createApp(): express.Express {
   const staticDir = path.resolve(__dirname, '../public')
   if (fs.existsSync(staticDir)) {
     app.use(express.static(staticDir))
-    app.get('*', (req, res, next) => {
+    app.get('/*splat', (req, res, next) => {
       if (req.path.startsWith('/api/')) return next()
       res.sendFile(path.join(staticDir, 'index.html'))
     })
