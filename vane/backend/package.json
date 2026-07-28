@@ -1,7 +1,7 @@
 {
   "name": "vane-backend",
-  "version": "1.0.0",
-  "description": "Vane backend \u2014 API for dynamic DNS on Cloudflare",
+  "version": "1.1.0",
+  "description": "Vane backend — API for dynamic DNS on Cloudflare",
   "private": true,
   "type": "commonjs",
   "main": "dist/index.js",
