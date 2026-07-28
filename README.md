@@ -584,15 +584,22 @@ cloudflare-ddns/  Shared config volume (favonia reads ddns.env)
 
 ## Contributing
 
-Contributions are welcome. A few notes to get started:
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full
+guide (development setup, pull-request workflow, and the Conventional Commits
+format). A few notes to get started:
 
 - Open an issue before large changes so we can align on direction.
 - Keep the backend (`vane/backend`) and frontend
   (`vane/frontend`) lint-clean; CI runs ESLint and TypeScript builds on
   every push and pull request.
-- Run `./precommit.sh` before pushing to catch lint/type errors locally.
+- Run [`./precommit.sh`](precommit.sh) before pushing to catch lint/type errors
+  locally.
 - Screenshots are generated deterministically - regenerate them with
   `./scripts/regen-screenshots.sh` when UI changes affect them.
+
+By participating, you agree to abide by our
+[Code of Conduct](CODE_OF_CONDUCT.md). To report a vulnerability, see the
+[Security Policy](SECURITY.md).
 
 ---
 
