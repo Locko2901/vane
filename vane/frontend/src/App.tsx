@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Hosts from './pages/Hosts'
