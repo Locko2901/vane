@@ -1,8 +1,8 @@
 # Vane
 
 [![CI](https://github.com/Locko2901/vane/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Locko2901/vane/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Locko2901/vane?sort=semver)](https://github.com/Locko2901/vane/releases)
-[![License](https://img.shields.io/github/license/Locko2901/vane)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/Locko2901/vane?logo=github)](https://github.com/Locko2901/vane/releases/latest)
+[![MIT License](https://img.shields.io/github/license/Locko2901/vane)](LICENSE)
 [![Image](https://img.shields.io/badge/ghcr.io-vane-blue?logo=docker)](https://github.com/Locko2901/vane/pkgs/container/vane)
 
 **Vane** is a lightweight, self-hosted web UI for dynamic DNS on Cloudflare - a
