@@ -186,11 +186,11 @@ export default function HostWizard({ host, tokens, onClose, onSaved }: Props) {
           )}
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="btn-secondary" onClick={onClose}>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button className="btn-secondary w-full sm:w-auto" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn-primary" onClick={save} disabled={busy}>
+          <button className="btn-primary w-full sm:w-auto" onClick={save} disabled={busy}>
             {busy ? 'Saving…' : 'Save'}
           </button>
         </div>

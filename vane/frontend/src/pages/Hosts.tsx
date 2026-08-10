@@ -111,28 +111,28 @@ export default function Hosts() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Hosts</h1>
-        <div className="flex gap-2">
-          <button className="btn-secondary" onClick={applyConfig} disabled={applying}>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button className="btn-secondary w-full sm:w-auto" onClick={applyConfig} disabled={applying}>
             <i className={`fa-solid fa-rocket ${applying ? 'fa-fade' : ''}`} />
             {applying ? 'Applying…' : 'Save & Restart DDNS'}
           </button>
-          <button className="btn-primary" onClick={openAdd}>
+          <button className="btn-primary w-full sm:w-auto" onClick={openAdd}>
             <i className="fa-solid fa-plus" />
             Add Host
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <input
-          className="input max-w-xs"
+          className="input w-full sm:max-w-xs"
           placeholder="Search hosts…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className="input max-w-xs" value={sortKey} onChange={(e) => setSortKey(e.target.value as any)}>
+        <select className="input w-full sm:max-w-xs" value={sortKey} onChange={(e) => setSortKey(e.target.value as any)}>
           <option value="fqdn">Sort by hostname</option>
           <option value="recordType">Sort by record type</option>
           <option value="tokenName">Sort by token</option>
@@ -159,19 +159,19 @@ export default function Hosts() {
                   {h.enabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
-              <dl className="grid grid-cols-2 gap-1 text-sm text-slate-600 dark:text-slate-300">
+              <dl className="grid grid-cols-1 gap-1 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
                 <div>Record: <span className="font-medium">{h.recordType}</span></div>
                 <div>Proxy: <span className="font-medium">{h.proxied ? 'Yes' : 'No'}</span></div>
                 <div>TTL: <span className="font-medium">{h.ttl === 1 ? 'Auto' : h.ttl}</span></div>
                 <div>Zone: <span className="font-medium">{h.zone}</span></div>
-                <div className="col-span-2">Token: <span className="font-mono">{h.tokenName} ({h.tokenMasked})</span></div>
+                <div className="sm:col-span-2">Token: <span className="font-mono">{h.tokenName} ({h.tokenMasked})</span></div>
               </dl>
               <div className="flex flex-wrap gap-1 pt-1">
-                <button className="btn-secondary" onClick={() => { setEditing(h); setWizardOpen(true) }}><i className="fa-solid fa-pen" />Edit</button>
-                <button className="btn-secondary" onClick={() => test(h)}><i className="fa-solid fa-vial" />Test</button>
-                <button className="btn-secondary" onClick={() => toggle(h)}><i className={`fa-solid ${h.enabled ? 'fa-pause' : 'fa-play'}`} />{h.enabled ? 'Disable' : 'Enable'}</button>
-                <button className="btn-secondary" onClick={() => duplicate(h)}><i className="fa-solid fa-copy" />Duplicate</button>
-                <button className="btn-danger" onClick={() => remove(h)}><i className="fa-solid fa-trash" />Delete</button>
+                <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => { setEditing(h); setWizardOpen(true) }}><i className="fa-solid fa-pen" />Edit</button>
+                <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => test(h)}><i className="fa-solid fa-vial" />Test</button>
+                <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => toggle(h)}><i className={`fa-solid ${h.enabled ? 'fa-pause' : 'fa-play'}`} />{h.enabled ? 'Disable' : 'Enable'}</button>
+                <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => duplicate(h)}><i className="fa-solid fa-copy" />Duplicate</button>
+                <button className="btn-danger flex-1 justify-center sm:flex-none" onClick={() => remove(h)}><i className="fa-solid fa-trash" />Delete</button>
               </div>
             </div>
           ))}

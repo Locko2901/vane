@@ -87,7 +87,7 @@ export default function Tokens() {
 
       <div className="card space-y-3">
         <h2 className="font-semibold">Add token</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <input className="input" placeholder="Name (e.g. Personal)" value={name} onChange={(e) => setName(e.target.value)} />
           <input
             className="input sm:col-span-2"
@@ -97,7 +97,7 @@ export default function Tokens() {
             onChange={(e) => setSecret(e.target.value)}
           />
         </div>
-        <button className="btn-primary" onClick={add} disabled={adding}>
+        <button className="btn-primary w-full sm:w-auto" onClick={add} disabled={adding}>
           <i className="fa-solid fa-plus" />
           {adding ? 'Adding…' : 'Add Token'}
         </button>
@@ -124,10 +124,10 @@ export default function Tokens() {
             </div>
             <div className="font-mono text-sm text-slate-500">{t.masked}</div>
             <div className="text-xs text-slate-500">{t.hostCount} host(s)</div>
-            <div className="flex gap-1 pt-1">
-              <button className="btn-secondary" onClick={() => test(t)}><i className="fa-solid fa-vial" />Test</button>
-              <button className="btn-secondary" onClick={() => rename(t)}><i className="fa-solid fa-pen" />Rename</button>
-              <button className="btn-danger" onClick={() => remove(t)}><i className="fa-solid fa-trash" />Delete</button>
+            <div className="flex flex-wrap gap-1 pt-1">
+              <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => test(t)}><i className="fa-solid fa-vial" />Test</button>
+              <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => rename(t)}><i className="fa-solid fa-pen" />Rename</button>
+              <button className="btn-danger flex-1 justify-center sm:flex-none" onClick={() => remove(t)}><i className="fa-solid fa-trash" />Delete</button>
             </div>
           </div>
         ))}

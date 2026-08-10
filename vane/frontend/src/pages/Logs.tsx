@@ -151,8 +151,8 @@ export default function Logs() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Logs</h1>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="inline-flex w-full overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700 sm:w-auto">
           {(['combined', 'split'] as Layout[]).map((l) => (
             <button
               key={l}
@@ -169,9 +169,9 @@ export default function Logs() {
           ))}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end xl:ml-auto">
           <input
-            className="input max-w-xs"
+            className="input w-full sm:max-w-xs"
             placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -180,11 +180,11 @@ export default function Logs() {
             <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
             Auto-refresh
           </label>
-          <a className="btn-secondary" href={downloadHref}>
+          <a className="btn-secondary w-full text-center sm:w-auto" href={downloadHref}>
             <i className="fa-solid fa-download" />
             Download
           </a>
-          <button className="btn-secondary" onClick={load}>
+          <button className="btn-secondary w-full sm:w-auto" onClick={load}>
             <i className="fa-solid fa-rotate-right" />
             Refresh
           </button>

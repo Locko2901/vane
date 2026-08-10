@@ -54,7 +54,7 @@ export default function Settings() {
   if (!settings) return <div className="text-slate-500">Loading settings...</div>
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="w-full max-w-xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
 
       <div className="card space-y-3">
@@ -108,7 +108,7 @@ export default function Settings() {
         <h2 className="font-semibold">Appearance</h2>
         <div>
           <label className="label">Theme</label>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {THEMES.map((t) => (
               <button
                 key={t.value}
@@ -127,7 +127,7 @@ export default function Settings() {
         </div>
       </div>
 
-      <button className="btn-primary" onClick={save}>
+      <button className="btn-primary w-full sm:w-auto" onClick={save}>
         <i className="fa-solid fa-floppy-disk" />
         Save
       </button>

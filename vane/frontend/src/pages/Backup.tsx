@@ -120,7 +120,7 @@ export default function Backup() {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="w-full max-w-xl space-y-6">
       <h1 className="text-2xl font-bold">Backup &amp; Restore</h1>
 
       <div className="card space-y-3">
@@ -138,7 +138,7 @@ export default function Backup() {
           value={exportPassword}
           onChange={(e) => setExportPassword(e.target.value)}
         />
-        <button className="btn-primary" onClick={doExport} disabled={exporting}>
+        <button className="btn-primary w-full sm:w-auto" onClick={doExport} disabled={exporting}>
           <i className={`fa-solid fa-download ${exporting ? 'fa-fade' : ''}`} />
           {exporting ? 'Encrypting…' : 'Export encrypted backup'}
         </button>
@@ -161,8 +161,8 @@ export default function Backup() {
             setPreview(null)
           }}
         />
-        <div className="flex items-center gap-2">
-          <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button className="btn-secondary w-full sm:w-auto" onClick={() => fileRef.current?.click()}>
             <i className="fa-solid fa-file-arrow-up" />
             {importFile ? 'Change file' : 'Choose .bin file'}
           </button>
@@ -194,9 +194,9 @@ export default function Backup() {
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <button
-            className="btn-secondary"
+            className="btn-secondary w-full sm:w-auto"
             onClick={doPreview}
             disabled={previewing || !importFile || !importPassword}
           >
@@ -204,7 +204,7 @@ export default function Backup() {
             {previewing ? 'Reading…' : 'Preview'}
           </button>
           <button
-            className="btn-danger"
+            className="btn-danger w-full sm:w-auto"
             onClick={doRestore}
             disabled={restoring || !preview}
             title={preview ? undefined : 'Preview the backup first'}

@@ -1,6 +1,9 @@
 /vane-data/
 
 /cloudflare-ddns/
+/vane/.data/
+/vane/backend/prisma/
+/package-lock.json
 *.env
 
 **/node_modules/

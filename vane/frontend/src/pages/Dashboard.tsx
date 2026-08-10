@@ -64,9 +64,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <button className="btn-secondary" onClick={restart} disabled={restarting || loading}>
+        <button className="btn-secondary w-full sm:w-auto" onClick={restart} disabled={restarting || loading}>
           <i className={`fa-solid fa-rotate-right ${restarting ? 'fa-spin' : ''}`} />
           {restarting ? 'Restarting...' : 'Restart DDNS'}
         </button>
@@ -157,7 +157,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="min-w-[720px] w-full text-sm">
                   <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
                       <th className="py-2 font-medium">Hostname</th>

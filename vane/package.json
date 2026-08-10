@@ -1,5 +1,11 @@
 {
+  "scripts": {
+    "dev": "DATA_DIR=\"$PWD/.data\" DATABASE_URL=\"file:$PWD/.data/vane.db\" concurrently -n backend,frontend -c blue,green \"npm --prefix backend run dev\" \"npm --prefix frontend run dev -- --host 0.0.0.0\"",
+    "dev:backend": "DATA_DIR=\"$PWD/.data\" DATABASE_URL=\"file:$PWD/.data/vane.db\" npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev -- --host 0.0.0.0"
+  },
   "devDependencies": {
+    "concurrently": "^9.0.1",
     "prisma": "^5.22.0"
   },
   "dependencies": {

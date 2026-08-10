@@ -12,20 +12,22 @@ const nav = [
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-60 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-2 px-5 py-4 text-lg font-bold">
-          <i className="fa-solid fa-location-arrow text-brand" />
-          Vane
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <aside className="border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 md:w-60 md:border-b-0 md:border-r">
+        <div className="flex items-center justify-between px-4 py-3 md:px-5 md:py-4">
+          <div className="flex items-center gap-2 text-lg font-bold">
+            <i className="fa-solid fa-location-arrow text-brand" />
+            Vane
+          </div>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex gap-1 overflow-x-auto px-3 py-2 md:flex-1 md:flex-col md:gap-1 md:overflow-visible md:px-3 md:py-3">
           {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.to === '/'}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${isActive
+                `flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${isActive
                   ? 'bg-brand/10 text-brand'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
                 }`
@@ -37,7 +39,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
       </aside>
-      <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
     </div>
   )
 }
