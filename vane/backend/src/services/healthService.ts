@@ -106,13 +106,12 @@ export async function getHealth(): Promise<HealthReport> {
   const banners: HealthReport['banners'] = []
   const expected = containers.filter((c) => c.tokenName !== null)
   const notRunning = expected.filter((c) => c.state !== 'running')
-  if (expected.length === 0 && domainCount === 0) {
-  } else if (expected.some((c) => !c.exists)) {
+  if (expected.length > 0 && expected.some((c) => !c.exists)) {
     banners.push({
       level: 'warn',
       message: 'One or more DDNS instances are not created yet. Click "Save & Restart DDNS" to launch them.',
     })
-  } else if (notRunning.length > 0) {
+  } else if (expected.length > 0 && notRunning.length > 0) {
     banners.push({
       level: 'warn',
       message: `${notRunning.length} DDNS instance(s) are not running.`,

@@ -48,7 +48,8 @@ export default function Logs() {
       } else {
         setSelected((prev) => prev.filter((n) => list.some((c) => c.name === n)))
       }
-    } catch {
+    } catch (error) {
+      console.error(error)
     }
   }
 
@@ -160,7 +161,7 @@ export default function Logs() {
               className={`px-3 py-1.5 text-sm font-medium capitalize transition ${layout === l
                 ? 'bg-brand text-white'
                 : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-              }`}
+                }`}
             >
               <i className={`fa-solid mr-1.5 ${l === 'combined' ? 'fa-align-justify' : 'fa-table-columns'}`} />
               {l}
@@ -203,7 +204,7 @@ export default function Logs() {
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${active
                   ? 'border-brand bg-brand/10 text-brand'
                   : 'border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800'
-                }`}
+                  }`}
                 title={c.name}
               >
                 <span

@@ -10,7 +10,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     try {
       const data = await res.json()
       message = data.error ?? message
-    } catch {
+    } catch (error) {
+      console.error(error)
     }
     throw new Error(message)
   }

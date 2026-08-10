@@ -189,7 +189,9 @@ export async function importExistingIfNeeded(): Promise<{ imported: boolean; det
           },
         })
         created++
-      } catch {}
+      } catch {
+        // Ignore errors - some entries may be invalid or duplicates.
+      }
     }
   }
 
