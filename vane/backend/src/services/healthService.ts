@@ -107,7 +107,6 @@ export async function getHealth(): Promise<HealthReport> {
   const expected = containers.filter((c) => c.tokenName !== null)
   const notRunning = expected.filter((c) => c.state !== 'running')
   if (expected.length === 0 && domainCount === 0) {
-    // Fresh install with nothing configured yet - no banner needed.
   } else if (expected.some((c) => !c.exists)) {
     banners.push({
       level: 'warn',

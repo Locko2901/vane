@@ -47,6 +47,12 @@ step "TypeScript: backend type-check"
 step "TypeScript: frontend type-check"
 ( cd "${FRONTEND}" && npm run typecheck ) && pass "frontend typecheck" || fail "frontend typecheck"
 
+step "Tests: backend"
+( cd "${BACKEND}" && npm test ) && pass "backend tests" || fail "backend tests"
+
+step "Tests: frontend"
+( cd "${FRONTEND}" && npm test ) && pass "frontend tests" || fail "frontend tests"
+
 step "Build: backend"
 ( cd "${BACKEND}" && npm run build ) && pass "backend build" || fail "backend build"
 

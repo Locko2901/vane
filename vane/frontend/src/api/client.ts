@@ -11,7 +11,6 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
       const data = await res.json()
       message = data.error ?? message
     } catch {
-      /* ignore */
     }
     throw new Error(message)
   }

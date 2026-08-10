@@ -49,7 +49,6 @@ export default function Logs() {
         setSelected((prev) => prev.filter((n) => list.some((c) => c.name === n)))
       }
     } catch {
-      /* surfaced by the log load below */
     }
   }
 

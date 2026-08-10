@@ -157,7 +157,6 @@ async function stopBase(): Promise<void> {
     const info = await baseContainer().inspect()
     if (info.State.Running) await baseContainer().stop({ t: 10 }).catch(() => undefined)
   } catch {
-    /* base container missing is fine */
   }
 }
 

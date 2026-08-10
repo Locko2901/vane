@@ -189,9 +189,8 @@ export async function importExistingIfNeeded(): Promise<{ imported: boolean; det
           },
         })
         created++
-      } catch {
-        // Ignore duplicates from overlapping domain lists.
-      }    }
+      } catch {}
+    }
   }
 
   return { imported: true, detail: `Imported ${created} host(s) from existing configuration.` }

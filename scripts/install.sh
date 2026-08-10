@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-#
-# install.sh - One-line installer for Vane (prebuilt Docker image).
-#
-# Usage:
-#   curl -fsSL https://raw.githubusercontent.com/Locko2901/vane/main/scripts/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/Locko2901/vane/main/scripts/install.sh | bash -s -- my-dir
-#
-# Environment variables:
-#   DDNS_REF    Git ref to download files from (default: latest release tag,
-#               or 'main' if no release exists / GitHub API is unreachable).
-#               Pass a tag like v1.2.0 to pin both the launcher and the
-#               prebuilt image tag, or 'main' to track the dev channel.
-#   DDNS_DIR    Target directory (default: vane, or $1).
-#
 
 set -euo pipefail
 

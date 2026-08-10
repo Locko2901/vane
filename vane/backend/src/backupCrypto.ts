@@ -1,18 +1,12 @@
 import crypto from 'node:crypto'
 import { argon2id } from 'hash-wasm'
 
-// Encrypted backup binary format (v1):
-//   [4B magic "VANE"][1B version][1B KDF id][4B mem_cost][4B iterations][4B parallelism]
-//   [16B salt][12B nonce][ciphertext || 16B GCM auth tag]
-// The full 18-byte header is authenticated as AES-GCM AAD, so tampering with the
-// version byte or KDF parameters (e.g. lowering the memory cost) fails decryption.
-
 const MAGIC = Buffer.from('VANE', 'ascii')
 const VERSION = 1
 const KDF_ARGON2ID = 1
 
 const ARGON2 = {
-  memCost: 131072, // 128 MiB, in KiB
+  memCost: 131072,
   iterations: 3,
   parallelism: 4,
 }
@@ -24,7 +18,7 @@ const TAG_LEN = 16
 const KEY_LEN = 32
 
 const LIMITS = {
-  memCost: { min: 8192, max: 262144 }, // 8 MiB .. 256 MiB (in KiB)
+  memCost: { min: 8192, max: 262144 },
   iterations: { min: 1, max: 10 },
   parallelism: { min: 1, max: 8 },
 }

@@ -57,7 +57,6 @@ export default function Backup() {
           const data = await res.json()
           message = data.error ?? message
         } catch {
-          /* ignore */
         }
         throw new Error(message)
       }
