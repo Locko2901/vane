@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.2](https://github.com/Locko2901/vane/compare/v1.1.1...v1.1.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* make Vane dev stack and mobile layout responsive ([219b706](https://github.com/Locko2901/vane/commit/219b7060b0c19dc8b3352bc95322b58d9a323494))
+* resolve  lint issues ([5e6f547](https://github.com/Locko2901/vane/commit/5e6f547a9479e15d0b02e2b6dc72dde7addf19c0))
+* resolve linting issues ([89526eb](https://github.com/Locko2901/vane/commit/89526eb4aca467948173c8fbe46f33cdbe43352b))
+
+
+### Tests
+
+* add frontend and backend test coverage for app flows, API client, and backup logic ([efb321f](https://github.com/Locko2901/vane/commit/efb321f174cc0562ee6f7c189c227fe772e6db7c))
+
 ## [1.1.1](https://github.com/Locko2901/vane/compare/v1.1.0...v1.1.1) (2026-07-28)
 
 
