@@ -15,6 +15,10 @@ updates:
         dependency-type: development
       backend-prod:
         dependency-type: production
+    ignore:
+      # typescript-eslint does not yet support the TypeScript 7 native preview.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: "/vane/frontend"
@@ -31,6 +35,13 @@ updates:
         dependency-type: development
       frontend-prod:
         dependency-type: production
+    ignore:
+      # typescript-eslint does not yet support the TypeScript 7 native preview.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Tailwind CSS v4 is a breaking CSS-first rewrite; migrate deliberately.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"
