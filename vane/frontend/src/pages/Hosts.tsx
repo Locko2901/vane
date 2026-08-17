@@ -166,7 +166,7 @@ export default function Hosts() {
       className={`badge ${h.enabled
         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
         : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-        }`}
+      }`}
     >
       {h.enabled ? 'Enabled' : 'Disabled'}
     </span>

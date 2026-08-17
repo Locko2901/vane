@@ -38,7 +38,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               : t.level === 'error'
                 ? 'border-red-500/30 bg-red-50/95 text-red-800 dark:border-red-500/30 dark:bg-red-950/80 dark:text-red-200'
                 : 'border-slate-300/60 bg-white/95 text-slate-700 dark:border-slate-700/60 dark:bg-slate-800/90 dark:text-slate-200'
-              }`}
+            }`}
           >
             <i
               className={`fa-solid mt-0.5 ${t.level === 'success'
@@ -46,7 +46,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 : t.level === 'error'
                   ? 'fa-circle-exclamation text-red-500'
                   : 'fa-circle-info text-slate-400'
-                }`}
+              }`}
             />
             <span className="min-w-0 break-words">{t.message}</span>
           </div>
