@@ -65,7 +65,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="page-title">Dashboard</h1>
         <button className="btn-secondary w-full sm:w-auto" onClick={restart} disabled={restarting || loading}>
           <i className={`fa-solid fa-rotate-right ${restarting ? 'fa-spin' : ''}`} />
           {restarting ? 'Restarting...' : 'Restart DDNS'}
@@ -131,7 +131,7 @@ export default function Dashboard() {
                 {health.containers.map((c) => (
                   <div
                     key={c.name}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-slate-50 px-3 py-2 transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800/40 dark:hover:border-slate-700"
                   >
                     <div className="min-w-0">
                       <div className="font-medium">
@@ -159,7 +159,7 @@ export default function Dashboard() {
               <div className="overflow-x-auto">
                 <table className="min-w-[720px] w-full text-sm">
                   <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
+                    <tr className="border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2 font-medium">Hostname</th>
                       <th className="font-medium">Type</th>
                       <th className="font-medium">Expected IP</th>
@@ -207,7 +207,7 @@ export default function Dashboard() {
 
 function Stat({ label, icon, children }: { label: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="card">
+    <div className="card card-hover">
       <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500">
         <i className={`fa-solid ${icon}`} />
         {label}

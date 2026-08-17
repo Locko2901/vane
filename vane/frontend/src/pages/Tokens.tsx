@@ -83,7 +83,7 @@ export default function Tokens() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold">Cloudflare API Tokens</h1>
+      <h1 className="page-title">Cloudflare API Tokens</h1>
 
       <div className="card space-y-3">
         <h2 className="font-semibold">Add token</h2>
@@ -108,7 +108,7 @@ export default function Tokens() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {tokens.map((t) => (
-          <div key={t.id} className="card space-y-2">
+          <div key={t.id} className="card card-hover space-y-2">
             <div className="flex items-center justify-between">
               <div className="font-semibold">{t.name}</div>
               {t.lastValid !== null && (

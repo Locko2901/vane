@@ -55,7 +55,7 @@ export default function Settings() {
 
   return (
     <div className="w-full max-w-xl space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="page-title">Settings</h1>
 
       <div className="card space-y-3">
         <h2 className="font-semibold">DDNS</h2>

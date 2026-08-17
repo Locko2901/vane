@@ -80,12 +80,25 @@ export default function HostWizard({ host, tokens, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="card max-h-[90vh] w-full max-w-lg overflow-y-auto"
+        className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-5 shadow-pop animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-semibold">{editing ? 'Edit Host' : 'Add Host'}</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2.5 text-lg font-semibold">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10 text-brand">
+              <i className={`fa-solid ${editing ? 'fa-pen' : 'fa-plus'} text-sm`} />
+            </span>
+            {editing ? 'Edit Host' : 'Add Host'}
+          </h2>
+          <button className="icon-btn text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={onClose} title="Close">
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
 
         <div className="space-y-3">
           <div>
@@ -163,12 +176,12 @@ export default function HostWizard({ host, tokens, onClose, onSaved }: Props) {
           </button>
 
           {validation && (
-            <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-              <p className={validation.tokenValid ? 'text-emerald-600' : 'text-red-600'}>
+            <div className="surface p-3 text-sm">
+              <p className={validation.tokenValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
                 <i className={`fa-solid ${validation.tokenValid ? 'fa-check' : 'fa-xmark'} mr-1`} />
                 {validation.tokenValid ? 'Token valid' : 'Token invalid'}
               </p>
-              <p className={validation.zoneExists ? 'text-emerald-600' : 'text-red-600'}>
+              <p className={validation.zoneExists ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
                 <i className={`fa-solid ${validation.zoneExists ? 'fa-check' : 'fa-xmark'} mr-1`} />
                 {validation.zoneExists ? `Zone found (${validation.fqdn})` : 'Zone not found'}
               </p>
@@ -186,7 +199,7 @@ export default function HostWizard({ host, tokens, onClose, onSaved }: Props) {
           )}
         </div>
 
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 dark:border-slate-800 sm:flex-row sm:justify-end">
           <button className="btn-secondary w-full sm:w-auto" onClick={onClose}>
             Cancel
           </button>

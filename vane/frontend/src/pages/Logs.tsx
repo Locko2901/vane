@@ -149,7 +149,7 @@ export default function Logs() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Logs</h1>
+      <h1 className="page-title">Logs</h1>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="inline-flex w-full overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700 sm:w-auto">

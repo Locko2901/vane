@@ -29,14 +29,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`badge max-w-sm rounded-lg px-4 py-2 text-sm text-white shadow-lg ${t.level === 'success' ? 'bg-emerald-600' : t.level === 'error' ? 'bg-red-600' : 'bg-slate-700'
-            }`}
+            className={`pointer-events-auto flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm shadow-pop backdrop-blur-md animate-slide-in-right ${t.level === 'success'
+              ? 'border-emerald-500/30 bg-emerald-50/95 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-200'
+              : t.level === 'error'
+                ? 'border-red-500/30 bg-red-50/95 text-red-800 dark:border-red-500/30 dark:bg-red-950/80 dark:text-red-200'
+                : 'border-slate-300/60 bg-white/95 text-slate-700 dark:border-slate-700/60 dark:bg-slate-800/90 dark:text-slate-200'
+              }`}
           >
-            {t.message}
+            <i
+              className={`fa-solid mt-0.5 ${t.level === 'success'
+                ? 'fa-circle-check text-emerald-500'
+                : t.level === 'error'
+                  ? 'fa-circle-exclamation text-red-500'
+                  : 'fa-circle-info text-slate-400'
+                }`}
+            />
+            <span className="min-w-0 break-words">{t.message}</span>
           </div>
         ))}
       </div>
