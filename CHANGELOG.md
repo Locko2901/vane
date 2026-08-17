@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.2.0](https://github.com/Locko2901/vane/compare/v1.1.2...v1.2.0) (2026-08-17)
+
+
+### Features
+
+* **hosts:** group by zone with collapsible sections and compact view ([e8c92af](https://github.com/Locko2901/vane/commit/e8c92afc1c61330d97c4da886ed797522306d6f6))
+* **routes:** add route imports and prefetch function for dynamic loading ([517c3d6](https://github.com/Locko2901/vane/commit/517c3d6b8d62dcb4739982fa568860b11783eb3b))
+
+
+### Bug Fixes
+
+* **frontend:** correct template literal indentation flagged by eslint ([7f4776a](https://github.com/Locko2901/vane/commit/7f4776a694bb6ecbb8aa800a82b8ec37aa2fc6ba))
+
+
+### Documentation
+
+* **readme:** clarify Vane only runs as a container with the DDNS container ([076be96](https://github.com/Locko2901/vane/commit/076be9696a94065ddcab3dd8cfbcd600bfc13efc))
+
+
+### Build System
+
+* **deps-dev:** bump the backend-dev group across 1 directory with 5 updates ([#29](https://github.com/Locko2901/vane/issues/29)) ([67019f2](https://github.com/Locko2901/vane/commit/67019f2d5e5417d982dfed21992342fa51e9b8f0))
+* **deps-dev:** bump the frontend-dev group ([#30](https://github.com/Locko2901/vane/issues/30)) ([3e4e91b](https://github.com/Locko2901/vane/commit/3e4e91b73ba7eda8ed89f8ae281c1ec490b48906))
+
+
+### CI
+
+* **dependabot:** ignore TypeScript 7 and Tailwind 4 majors ([5ed54de](https://github.com/Locko2901/vane/commit/5ed54de7cc7ee6f25ee837ac28378db3478d8725))
+
+
+### Styles
+
+* **ui:** refresh design system across the app ([72e396d](https://github.com/Locko2901/vane/commit/72e396da65b8feab81f2365e8c1de4060b56606f))
+
 ## [1.1.2](https://github.com/Locko2901/vane/compare/v1.1.1...v1.1.2) (2026-08-10)
 
 
