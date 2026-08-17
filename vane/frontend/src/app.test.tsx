@@ -198,7 +198,7 @@ describe('main UI flows', () => {
 
     renderApp('/backup')
 
-    fireEvent.change(screen.getByPlaceholderText(/backup password \(min\. 8 characters\)/i), {
+    fireEvent.change(await screen.findByPlaceholderText(/backup password \(min\. 8 characters\)/i), {
       target: { value: 'super-secret' },
     })
     fireEvent.click(screen.getByRole('button', { name: /export encrypted backup/i }))
