@@ -19,6 +19,15 @@ Vane never modifies the DDNS image. It communicates with Docker
   status/logs), and
 - a generated config record written to the shared config volume for reference.
 
+> [!IMPORTANT]
+> **Vane only runs as a container, alongside the
+> [`favonia/cloudflare-ddns`](https://github.com/favonia/cloudflare-ddns)
+> container.** It is not a standalone app: it performs DNS updates solely by
+> creating and recreating favonia containers over the host Docker socket, so it
+> needs both that socket and a favonia service present (see
+> [Quick start](#quick-start)). There is no socket-less / non-container mode -
+> the dev server (`npm run dev`) is for UI work only and cannot update DNS.
+
 ![Dashboard](screenshots/dashboard.png)
 
 ---
@@ -175,6 +184,9 @@ enabled hosts.
 
 ## Requirements
 
+- **Runs only as a container** deployed together with a favonia
+  `cloudflare-ddns` container - Vane drives DNS updates by managing that
+  container over the Docker socket, so there is no standalone / socket-less mode.
 - **Docker Engine** 20.10 or newer.
 - **Docker Compose v2** (the `docker compose` subcommand). The launcher and
   install scripts call `docker compose`, not the legacy `docker-compose` binary.
