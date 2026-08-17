@@ -13,6 +13,7 @@
     "test": "tsx --test test/*.test.ts",
     "test:coverage": "tsx --test --experimental-test-coverage test/*.test.ts",
     "start": "node dist/index.js",
+    "seed:bogus": "tsx src/scripts/seed-bogus.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prisma:generate": "mkdir -p prisma && cp ../prisma/schema.prisma prisma/schema.prisma && prisma generate",
