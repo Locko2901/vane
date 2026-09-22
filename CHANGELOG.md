@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.1](https://github.com/Locko2901/vane/compare/v1.2.0...v1.2.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **cloudflare:** sync proxy status onto existing DNS records on apply ([7a92293](https://github.com/Locko2901/vane/commit/7a92293f69c4de942560728ba8a9a71e0cd9860c))
+
+
+### Miscellaneous
+
+* remove ddns-manager remnant of the pre-rename tree ([544c95e](https://github.com/Locko2901/vane/commit/544c95e2270b533ff3f71968a2b5d8e9f7f177e3))
+
 ## [1.2.0](https://github.com/Locko2901/vane/compare/v1.1.2...v1.2.0) (2026-08-17)
 
 
