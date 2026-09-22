@@ -9,6 +9,7 @@ const DEFAULTS: Record<string, string> = {
   refreshInterval: '300',
   theme: 'dark',
   deleteRecordsOnRemoval: 'false',
+  syncProxyStatus: 'true',
 }
 
 settingsRouter.get('/', async (_req, res) => {

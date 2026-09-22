@@ -8,6 +8,7 @@ interface SettingsDTO {
   refreshInterval: string
   theme: string
   deleteRecordsOnRemoval: string
+  syncProxyStatus: string
   [k: string]: string
 }
 
@@ -37,6 +38,7 @@ export default function Settings() {
         refreshInterval: settings.refreshInterval,
         theme: settings.theme,
         deleteRecordsOnRemoval: settings.deleteRecordsOnRemoval,
+        syncProxyStatus: settings.syncProxyStatus,
       })
       applyTheme((settings.theme as Theme) ?? 'dark')
       toast('Settings saved.', 'success')
@@ -98,6 +100,25 @@ export default function Settings() {
               <p className="mt-1 text-xs text-slate-500">
                 When a host is deleted or disabled, also remove its app-managed A/AAAA records from
                 Cloudflare. Leave off to keep the last known DNS value.
+              </p>
+            </span>
+          </label>
+        </div>
+        <div>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-brand"
+              checked={settings.syncProxyStatus !== 'false'}
+              onChange={(e) =>
+                setSettings({ ...settings, syncProxyStatus: e.target.checked ? 'true' : 'false' })
+              }
+            />
+            <span>
+              <span className="label">Sync proxy status on apply</span>
+              <p className="mt-1 text-xs text-slate-500">
+                On every apply, push each host&apos;s proxy toggle onto its existing Cloudflare
+                records. Leave off to only set proxy status when a record is first created.
               </p>
             </span>
           </label>

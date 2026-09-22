@@ -170,3 +170,51 @@ export async function deleteRecordsForName(
   }
   return { deleted, errors }
 }
+
+export async function setProxied(
+  token: string,
+  zoneId: string,
+  recordId: string,
+  proxied: boolean,
+): Promise<boolean> {
+  const res = await cf<CfDnsRecord>(token, `/zones/${zoneId}/dns_records/${recordId}`, {
+    method: 'PATCH',
+    body: { proxied },
+  })
+  return res.success
+}
+
+export interface ProxySyncResult {
+  changed: number
+  errors: string[]
+}
+
+export async function syncProxiedForName(
+  token: string,
+  zoneName: string,
+  fqdn: string,
+  recordType: 'A' | 'AAAA' | 'BOTH',
+  proxied: boolean,
+): Promise<ProxySyncResult> {
+  const zone = await findZone(token, zoneName)
+  if (!zone) return { changed: 0, errors: [`Zone "${zoneName}" not found for this token.`] }
+
+  const wantTypes = recordType === 'BOTH' ? ['A', 'AAAA'] : [recordType]
+  const res = await cf<CfDnsRecord[]>(
+    token,
+    `/zones/${zone.id}/dns_records?name=${encodeURIComponent(fqdn)}`,
+  )
+  if (!res.success) {
+    return { changed: 0, errors: res.errors?.map((e) => e.message) ?? ['Failed to list DNS records.'] }
+  }
+
+  const drifted = res.result.filter((r) => wantTypes.includes(r.type) && r.proxied !== proxied)
+  let changed = 0
+  const errors: string[] = []
+  for (const rec of drifted) {
+    const ok = await setProxied(token, zone.id, rec.id, proxied)
+    if (ok) changed += 1
+    else errors.push(`Failed to set proxied=${proxied} on ${rec.type} record for ${rec.name}.`)
+  }
+  return { changed, errors }
+}

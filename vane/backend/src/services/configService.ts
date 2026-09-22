@@ -3,6 +3,7 @@ import { prisma } from '../db'
 import { config, paths } from '../config'
 import { decrypt, encrypt } from '../crypto'
 import * as dockerService from './dockerService'
+import { syncProxiedForName } from './cloudflareService'
 import type { Host, ApiToken } from '@prisma/client'
 
 export function fqdn(zone: string, hostname: string): string {
@@ -119,11 +120,62 @@ function renderCombined(instances: InstanceConfig[], redact: boolean): string {
 }
 
 
+export interface ProxySyncSummary {
+  changed: number
+  errors: string[]
+}
+
+async function syncProxiedRecords(): Promise<ProxySyncSummary> {
+  const setting = await prisma.setting.findUnique({ where: { key: 'syncProxyStatus' } })
+  if (setting?.value === 'false') return { changed: 0, errors: [] }
+
+  const hosts = (await prisma.host.findMany({
+    where: { enabled: true },
+    include: { token: true },
+  })) as HostWithToken[]
+
+  const byToken = new Map<number, HostWithToken[]>()
+  for (const h of hosts) {
+    const group = byToken.get(h.tokenId) ?? []
+    group.push(h)
+    byToken.set(h.tokenId, group)
+  }
+
+  let changed = 0
+  const errors: string[] = []
+  for (const group of byToken.values()) {
+    let apiToken: string
+    try {
+      apiToken = decrypt(group[0].token.ciphertext)
+    } catch {
+      errors.push(`Could not decrypt token "${group[0].token.name}"; skipped proxy sync for its hosts.`)
+      continue
+    }
+    for (const h of group) {
+      try {
+        const result = await syncProxiedForName(
+          apiToken,
+          h.zone,
+          fqdn(h.zone, h.hostname),
+          h.recordType as 'A' | 'AAAA' | 'BOTH',
+          h.proxied,
+        )
+        changed += result.changed
+        errors.push(...result.errors)
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : 'Cloudflare proxy sync failed.')
+      }
+    }
+  }
+  return { changed, errors }
+}
+
 export async function applyAndRestart(note?: string): Promise<{
   warnings: string[]
   recreated: boolean
   message: string
   instances: dockerService.InstanceResult[]
+  proxySync: ProxySyncSummary
 }> {
   const generated = await generateConfig()
 
@@ -138,7 +190,13 @@ export async function applyAndRestart(note?: string): Promise<{
 
   if (generated.instances.length === 0) {
     const stopResult = await dockerService.stopAllManaged()
-    return { warnings: generated.warnings, recreated: false, message: stopResult.message, instances: [] }
+    return {
+      warnings: generated.warnings,
+      recreated: false,
+      message: stopResult.message,
+      instances: [],
+      proxySync: { changed: 0, errors: [] },
+    }
   }
 
   const { results, removed } = await dockerService.applyInstances(
@@ -147,7 +205,17 @@ export async function applyAndRestart(note?: string): Promise<{
   const recreated = results.every((r) => r.recreated)
   const parts = results.map((r) => r.message)
   if (removed.length) parts.push(`Removed ${removed.length} obsolete instance(s).`)
-  return { warnings: generated.warnings, recreated, message: parts.join(' '), instances: results }
+
+  const proxySync = await syncProxiedRecords()
+  if (proxySync.changed > 0) parts.push(`Synced proxy status on ${proxySync.changed} record(s).`)
+
+  return {
+    warnings: [...generated.warnings, ...proxySync.errors],
+    recreated,
+    message: parts.join(' '),
+    instances: results,
+    proxySync,
+  }
 }
 
 export async function importExistingIfNeeded(): Promise<{ imported: boolean; detail: string }> {

@@ -15,8 +15,9 @@ const modulesPromise = (async () => {
   const configService = await import('../src/services/configService')
   const dockerService = await import('../src/services/dockerService')
   const healthService = await import('../src/services/healthService')
+  const cloudflareService = await import('../src/services/cloudflareService')
   const cryptoModule = await import('../src/crypto')
-  return { prisma, configService, dockerService, healthService, cryptoModule }
+  return { prisma, configService, dockerService, healthService, cloudflareService, cryptoModule }
 })()
 
 void test('configService.fqdn normalizes hostnames', async () => {
@@ -70,4 +71,123 @@ void test('configService.importExistingIfNeeded imports hosts from ddns.env', as
   } finally {
     for (const restoreOne of restore.reverse()) restoreOne()
   }
+})
+
+interface StubCall {
+  url: string
+  method: string
+  body: unknown
+}
+
+function stubCloudflare(
+  records: Array<{ id: string; type: string; proxied: boolean }>,
+  patchSucceeds: (id: string) => boolean,
+): { calls: StubCall[]; restore: () => void } {
+  const calls: StubCall[] = []
+  const restore = overrideProperty(globalThis, 'fetch', ((url: string, init?: RequestInit) => {
+    calls.push({
+      url,
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(init.body as string) : undefined,
+    })
+    const json = (payload: unknown) => Promise.resolve({ json: () => Promise.resolve(payload) } as Response)
+    if (url.includes('/zones?name=')) {
+      return json({ success: true, errors: [], result: [{ id: 'zone-1', name: 'example.com', status: 'active' }] })
+    }
+    if (url.includes('/dns_records?name=')) {
+      return json({
+        success: true,
+        errors: [],
+        result: records.map((r) => ({ ...r, name: 'vpn.example.com', content: '203.0.113.5', ttl: 1 })),
+      })
+    }
+    const id = url.slice(url.lastIndexOf('/') + 1)
+    return patchSucceeds(id)
+      ? json({ success: true, errors: [], result: { id } })
+      : json({ success: false, errors: [{ code: 1004, message: 'Proxied records must point to a public IP.' }], result: null })
+  }) as typeof fetch)
+  return { calls, restore }
+}
+
+void test('cloudflareService.syncProxiedForName patches only drifted records', async () => {
+  const { cloudflareService } = await modulesPromise
+  const { calls, restore } = stubCloudflare(
+    [
+      { id: 'rec-a', type: 'A', proxied: false },
+      { id: 'rec-aaaa', type: 'AAAA', proxied: false },
+      { id: 'rec-already', type: 'A', proxied: true },
+      { id: 'rec-txt', type: 'TXT', proxied: false },
+    ],
+    () => true,
+  )
+
+  try {
+    const result = await cloudflareService.syncProxiedForName('tok', 'example.com', 'vpn.example.com', 'BOTH', true)
+    assert.deepEqual(result, { changed: 2, errors: [] })
+
+    const patches = calls.filter((c) => c.method === 'PATCH')
+    assert.deepEqual(patches.map((c) => c.url.slice(c.url.lastIndexOf('/') + 1)), ['rec-a', 'rec-aaaa'])
+    for (const patch of patches) assert.deepEqual(patch.body, { proxied: true })
+  } finally {
+    restore()
+  }
+})
+
+void test('cloudflareService.syncProxiedForName honours the record type and reports refusals', async () => {
+  const { cloudflareService } = await modulesPromise
+  const { calls, restore } = stubCloudflare(
+    [
+      { id: 'rec-a', type: 'A', proxied: false },
+      { id: 'rec-aaaa', type: 'AAAA', proxied: false },
+    ],
+    () => false,
+  )
+
+  try {
+    const result = await cloudflareService.syncProxiedForName('tok', 'example.com', 'vpn.example.com', 'A', true)
+    assert.equal(result.changed, 0)
+    assert.deepEqual(result.errors, ['Failed to set proxied=true on A record for vpn.example.com.'])
+    assert.equal(calls.filter((c) => c.method === 'PATCH').length, 1)
+  } finally {
+    restore()
+  }
+})
+
+void test('configService.applyAndRestart syncs proxy status unless the setting is off', async () => {
+  const { prisma, configService, dockerService, cryptoModule } = await modulesPromise
+  const ciphertext = cryptoModule.encrypt('token-1')
+  const host = {
+    id: 1, zone: 'example.com', hostname: 'vpn', recordType: 'A', proxied: true, ttl: 1,
+    description: null, enabled: true, tokenId: 11, token: { name: 'Personal', ciphertext },
+  }
+
+  const runApply = async (settingValue: string | null) => {
+    const { calls, restore } = stubCloudflare([{ id: 'rec-a', type: 'A', proxied: false }], () => true)
+    const restoreAll = [
+      restore,
+      overrideProperty(prisma.host, 'findMany', () => Promise.resolve([host] as any)),
+      overrideProperty(prisma.configHistory, 'create', () => Promise.resolve(undefined as any)),
+      overrideProperty(prisma.setting, 'findUnique', () => Promise.resolve(
+        settingValue === null ? null : { key: 'syncProxyStatus', value: settingValue } as any,
+      )),
+      overrideProperty(dockerService, 'applyInstances', () => Promise.resolve({
+        results: [{ tokenId: 11, name: 'vane-ddns-11', recreated: true, message: 'vane-ddns-11 started.' }],
+        removed: [],
+      })),
+    ]
+    try {
+      return { result: await configService.applyAndRestart('test'), calls }
+    } finally {
+      for (const restoreOne of restoreAll.reverse()) restoreOne()
+    }
+  }
+
+  const unset = await runApply(null)
+  assert.deepEqual(unset.result.proxySync, { changed: 1, errors: [] })
+  assert.match(unset.result.message, /Synced proxy status on 1 record\(s\)\./)
+
+  const off = await runApply('false')
+  assert.deepEqual(off.result.proxySync, { changed: 0, errors: [] })
+  assert.equal(off.calls.length, 0)
+  assert.doesNotMatch(off.result.message, /Synced proxy status/)
 })
