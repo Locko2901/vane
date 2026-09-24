@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/Locko2901/vane/compare/v1.2.1...v1.2.2) (2026-09-24)
+
+
+### Bug Fixes
+
+* **dashboard:** check every enabled host in Record Health ([0bf448c](https://github.com/Locko2901/vane/commit/0bf448c1f473eb985b2a196d98d9442fdc27cef3))
+
 ## [1.2.1](https://github.com/Locko2901/vane/compare/v1.2.0...v1.2.1) (2026-09-22)
 
 
