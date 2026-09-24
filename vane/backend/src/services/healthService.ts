@@ -1,7 +1,7 @@
 import { prisma } from '../db'
 import { decrypt } from '../crypto'
 import * as dockerService from './dockerService'
-import { getRecords, verifyTokenOnly, CloudflareNetworkError } from './cloudflareService'
+import { listZoneRecords, verifyTokenOnly, CloudflareNetworkError, type CfDnsRecord } from './cloudflareService'
 import { fqdn } from './configService'
 
 export async function getPublicIPv4(): Promise<string | null> {
@@ -88,7 +88,7 @@ export async function getHealth(): Promise<HealthReport> {
   const hosts = await prisma.host.findMany({
     where: { enabled: true },
     include: { token: true },
-    take: 10,
+    orderBy: [{ zone: 'asc' }, { hostname: 'asc' }, { recordType: 'asc' }],
   })
   const needsIPv6 = hosts.some((h) => h.recordType === 'AAAA' || h.recordType === 'BOTH')
 
@@ -150,6 +150,17 @@ export async function getHealth(): Promise<HealthReport> {
     }),
   )
 
+  const zoneRecords = new Map<string, Promise<CfDnsRecord[]>>()
+  const recordsForZone = (h: (typeof hosts)[number]): Promise<CfDnsRecord[]> => {
+    const key = `${h.tokenId}:${h.zone}`
+    let pending = zoneRecords.get(key)
+    if (!pending) {
+      pending = listZoneRecords(decrypt(h.token.ciphertext), h.zone)
+      zoneRecords.set(key, pending)
+    }
+    return pending
+  }
+
   const records = await Promise.all(
     hosts.map(async (h): Promise<HealthReport['records'][number]> => {
       const name = fqdn(h.zone, h.hostname)
@@ -159,8 +170,8 @@ export async function getHealth(): Promise<HealthReport> {
         return { hostname: name, type: wantType, expected, cloudflareValue: null, updateNeeded: false }
       }
       try {
-        const cfRecords = await getRecords(decrypt(h.token.ciphertext), h.zone, name)
-        const match = cfRecords.find((r) => r.type === wantType)
+        const cfRecords = await recordsForZone(h)
+        const match = cfRecords.find((r) => r.type === wantType && r.name.toLowerCase() === name.toLowerCase())
         return {
           hostname: name,
           type: wantType,

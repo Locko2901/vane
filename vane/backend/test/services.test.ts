@@ -3,12 +3,14 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import Docker from 'dockerode'
 import { overrideProperty } from './helpers'
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vane-backend-services-'))
 const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vane-backend-config-'))
 process.env.DATA_DIR = dataDir
 process.env.DDNS_CONFIG_DIR = configDir
+process.env.DOCKER_SOCKET = path.join(dataDir, 'docker.sock')
 
 const modulesPromise = (async () => {
   const { prisma } = await import('../src/db')
@@ -72,6 +74,23 @@ void test('configService.importExistingIfNeeded imports hosts from ddns.env', as
     for (const restoreOne of restore.reverse()) restoreOne()
   }
 })
+
+function stubDocker(containers: Array<{ name: string; state: string; status: string }> = []): () => void {
+  const notFound = Object.assign(new Error('no such container'), { statusCode: 404 })
+  const restore = [
+    overrideProperty(Docker.prototype, 'listContainers', (() => Promise.resolve(
+      containers.map((c) => ({ Names: [`/${c.name}`], State: c.state, Status: c.status })),
+    )) as never),
+    overrideProperty(Docker.prototype, 'createContainer', (() => Promise.resolve({})) as never),
+    overrideProperty(Docker.prototype, 'getContainer', (() => ({
+      inspect: () => Promise.reject(notFound),
+      start: () => Promise.resolve(),
+    })) as never),
+  ]
+  return () => {
+    for (const restoreOne of restore.reverse()) restoreOne()
+  }
+}
 
 interface StubCall {
   url: string
@@ -154,7 +173,7 @@ void test('cloudflareService.syncProxiedForName honours the record type and repo
 })
 
 void test('configService.applyAndRestart syncs proxy status unless the setting is off', async () => {
-  const { prisma, configService, dockerService, cryptoModule } = await modulesPromise
+  const { prisma, configService, cryptoModule } = await modulesPromise
   const ciphertext = cryptoModule.encrypt('token-1')
   const host = {
     id: 1, zone: 'example.com', hostname: 'vpn', recordType: 'A', proxied: true, ttl: 1,
@@ -170,10 +189,7 @@ void test('configService.applyAndRestart syncs proxy status unless the setting i
       overrideProperty(prisma.setting, 'findUnique', () => Promise.resolve(
         settingValue === null ? null : { key: 'syncProxyStatus', value: settingValue } as any,
       )),
-      overrideProperty(dockerService, 'applyInstances', () => Promise.resolve({
-        results: [{ tokenId: 11, name: 'vane-ddns-11', recreated: true, message: 'vane-ddns-11 started.' }],
-        removed: [],
-      })),
+      stubDocker(),
     ]
     try {
       return { result: await configService.applyAndRestart('test'), calls }
@@ -190,4 +206,63 @@ void test('configService.applyAndRestart syncs proxy status unless the setting i
   assert.deepEqual(off.result.proxySync, { changed: 0, errors: [] })
   assert.equal(off.calls.length, 0)
   assert.doesNotMatch(off.result.message, /Synced proxy status/)
+})
+
+void test('healthService.getHealth covers every enabled host, not just the first 10', async () => {
+  const { prisma, dockerService, healthService, cryptoModule } = await modulesPromise
+  const personal = { id: 11, name: 'Personal', ciphertext: cryptoModule.encrypt('token-1') }
+  const work = { id: 12, name: 'Work', ciphertext: cryptoModule.encrypt('token-2') }
+  const hosts = [
+    ...Array.from({ length: 10 }, (_, i) => ({ zone: 'example.com', hostname: `h${i + 1}`, token: personal })),
+    ...Array.from({ length: 2 }, (_, i) => ({ zone: 'example.org', hostname: `h${i + 11}`, token: work })),
+  ].map((h, i) => ({
+    id: i + 1, zone: h.zone, hostname: h.hostname, recordType: 'A', proxied: true, ttl: 1,
+    description: null, enabled: true, tokenId: h.token.id, token: h.token,
+  }))
+  const ip = '203.0.113.10'
+
+  const dnsCalls: string[] = []
+  const restore = [
+    overrideProperty(prisma.host, 'findMany', ({ take }: { take?: number }) => Promise.resolve(hosts.slice(0, take) as any)),
+    overrideProperty(prisma.host, 'count', () => Promise.resolve(hosts.length)),
+    stubDocker([personal, work].map((t) => ({
+      name: dockerService.containerNameForToken(t.id), state: 'running', status: 'Up',
+    }))),
+    overrideProperty(globalThis, 'fetch', ((input: string) => {
+      const url = new URL(input)
+      const json = (result: unknown, extra: object = {}) =>
+        Promise.resolve({ json: () => Promise.resolve({ success: true, errors: [], result, ...extra }) } as Response)
+      if (url.pathname.endsWith('/cdn-cgi/trace')) {
+        return Promise.resolve({ text: () => Promise.resolve(`fl=1\nip=${ip}\n`) } as Response)
+      }
+      if (url.pathname.endsWith('/user/tokens/verify')) return json({ id: 'tok', status: 'active' })
+      if (url.pathname.endsWith('/zones')) {
+        const name = url.searchParams.get('name')!
+        return json([{ id: `zone-${name}`, name, status: 'active' }])
+      }
+      dnsCalls.push(input)
+      const zone = url.pathname.split('/')[4].slice('zone-'.length)
+      const name = url.searchParams.get('name')
+      const result = hosts
+        .filter((h) => h.zone === zone && (name === null || `${h.hostname}.${h.zone}` === name))
+        .map((h) => ({ id: `rec-${h.id}`, type: 'A', name: `${h.hostname}.${h.zone}`, content: ip, proxied: true, ttl: 1 }))
+      return json(result, { result_info: { page: 1, per_page: 100, count: result.length, total_count: result.length, total_pages: 1 } })
+    }) as typeof fetch),
+  ]
+
+  try {
+    const report = await healthService.getHealth()
+    assert.equal(report.domainCount, 12)
+    assert.equal(report.records.length, 12)
+    assert.ok(report.records.every((r) => r.cloudflareValue === ip && !r.updateNeeded))
+    assert.deepEqual(
+      report.containers.map((c) => [c.tokenId, c.tokenName]).sort(),
+      [[11, 'Personal'], [12, 'Work']],
+    )
+    assert.ok(!report.banners.some((b) => b.message.includes('removed tokens')))
+    assert.deepEqual(report.banners, [{ level: 'ok', message: 'Everything healthy.' }])
+    assert.equal(dnsCalls.length, 2)
+  } finally {
+    for (const restoreOne of restore.reverse()) restoreOne()
+  }
 })

@@ -4,6 +4,7 @@ export interface CfResult<T> {
   success: boolean
   errors: Array<{ code: number; message: string }>
   result: T
+  result_info?: { page: number; total_pages: number }
 }
 
 export interface CfZone {
@@ -128,6 +129,18 @@ export async function getRecords(
     `/zones/${zone.id}/dns_records?name=${encodeURIComponent(fqdn)}`,
   )
   return res.success ? res.result : []
+}
+
+export async function listZoneRecords(token: string, zoneName: string): Promise<CfDnsRecord[]> {
+  const zone = await findZone(token, zoneName)
+  if (!zone) return []
+  const records: CfDnsRecord[] = []
+  for (let page = 1; ; page++) {
+    const res = await cf<CfDnsRecord[]>(token, `/zones/${zone.id}/dns_records?per_page=100&page=${page}`)
+    if (!res.success) return records
+    records.push(...res.result)
+    if (page >= (res.result_info?.total_pages ?? 1)) return records
+  }
 }
 
 export async function deleteRecord(token: string, zoneId: string, recordId: string): Promise<boolean> {
