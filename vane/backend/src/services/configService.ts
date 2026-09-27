@@ -4,12 +4,17 @@ import { config, paths } from '../config'
 import { decrypt, encrypt } from '../crypto'
 import * as dockerService from './dockerService'
 import { syncProxiedForName } from './cloudflareService'
-import type { Host, ApiToken } from '@prisma/client'
+import { describeSrvSync, emptySrvSummary, syncSrvRecords, type SrvSyncSummary } from './srvService'
+import type { Host, ApiToken, SrvRecord } from '@prisma/client'
 
 export function fqdn(zone: string, hostname: string): string {
   const h = hostname.trim()
   if (h === '' || h === '@') return zone
   return `${h}.${zone}`
+}
+
+export function srvName(r: Pick<SrvRecord, 'zone' | 'hostname' | 'service' | 'proto'>): string {
+  return `_${r.service}._${r.proto}.${fqdn(r.zone, r.hostname)}`.toLowerCase()
 }
 
 type HostWithToken = Host & { token: ApiToken }
@@ -170,12 +175,21 @@ async function syncProxiedRecords(): Promise<ProxySyncSummary> {
   return { changed, errors }
 }
 
+async function syncSrvAfterApply(): Promise<SrvSyncSummary> {
+  try {
+    return await syncSrvRecords()
+  } catch (err) {
+    return { ...emptySrvSummary(), errors: [`SRV sync failed: ${err instanceof Error ? err.message : 'unknown error'}`] }
+  }
+}
+
 export async function applyAndRestart(note?: string): Promise<{
   warnings: string[]
   recreated: boolean
   message: string
   instances: dockerService.InstanceResult[]
   proxySync: ProxySyncSummary
+  srvSync: SrvSyncSummary
 }> {
   const generated = await generateConfig()
 
@@ -190,12 +204,15 @@ export async function applyAndRestart(note?: string): Promise<{
 
   if (generated.instances.length === 0) {
     const stopResult = await dockerService.stopAllManaged()
+    const srvSync = await syncSrvAfterApply()
+    const srvPart = describeSrvSync(srvSync)
     return {
-      warnings: generated.warnings,
+      warnings: [...generated.warnings, ...srvSync.errors],
       recreated: false,
-      message: stopResult.message,
+      message: srvPart ? `${stopResult.message} ${srvPart}` : stopResult.message,
       instances: [],
       proxySync: { changed: 0, errors: [] },
+      srvSync,
     }
   }
 
@@ -209,12 +226,17 @@ export async function applyAndRestart(note?: string): Promise<{
   const proxySync = await syncProxiedRecords()
   if (proxySync.changed > 0) parts.push(`Synced proxy status on ${proxySync.changed} record(s).`)
 
+  const srvSync = await syncSrvAfterApply()
+  const srvPart = describeSrvSync(srvSync)
+  if (srvPart) parts.push(srvPart)
+
   return {
-    warnings: [...generated.warnings, ...proxySync.errors],
+    warnings: [...generated.warnings, ...proxySync.errors, ...srvSync.errors],
     recreated,
     message: parts.join(' '),
     instances: results,
     proxySync,
+    srvSync,
   }
 }
 

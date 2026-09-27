@@ -3,8 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import Docker from 'dockerode'
-import { overrideProperty } from './helpers'
+import { overrideProperty, stubDocker } from './helpers'
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vane-backend-services-'))
 const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vane-backend-config-'))
@@ -74,23 +73,6 @@ void test('configService.importExistingIfNeeded imports hosts from ddns.env', as
     for (const restoreOne of restore.reverse()) restoreOne()
   }
 })
-
-function stubDocker(containers: Array<{ name: string; state: string; status: string }> = []): () => void {
-  const notFound = Object.assign(new Error('no such container'), { statusCode: 404 })
-  const restore = [
-    overrideProperty(Docker.prototype, 'listContainers', (() => Promise.resolve(
-      containers.map((c) => ({ Names: [`/${c.name}`], State: c.state, Status: c.status })),
-    )) as never),
-    overrideProperty(Docker.prototype, 'createContainer', (() => Promise.resolve({})) as never),
-    overrideProperty(Docker.prototype, 'getContainer', (() => ({
-      inspect: () => Promise.reject(notFound),
-      start: () => Promise.resolve(),
-    })) as never),
-  ]
-  return () => {
-    for (const restoreOne of restore.reverse()) restoreOne()
-  }
-}
 
 interface StubCall {
   url: string
@@ -185,6 +167,7 @@ void test('configService.applyAndRestart syncs proxy status unless the setting i
     const restoreAll = [
       restore,
       overrideProperty(prisma.host, 'findMany', () => Promise.resolve([host] as any)),
+      overrideProperty(prisma.srvRecord, 'findMany', () => Promise.resolve([])),
       overrideProperty(prisma.configHistory, 'create', () => Promise.resolve(undefined as any)),
       overrideProperty(prisma.setting, 'findUnique', () => Promise.resolve(
         settingValue === null ? null : { key: 'syncProxyStatus', value: settingValue } as any,
@@ -200,6 +183,7 @@ void test('configService.applyAndRestart syncs proxy status unless the setting i
 
   const unset = await runApply(null)
   assert.deepEqual(unset.result.proxySync, { changed: 1, errors: [] })
+  assert.deepEqual(unset.result.warnings, [])
   assert.match(unset.result.message, /Synced proxy status on 1 record\(s\)\./)
 
   const off = await runApply('false')
@@ -225,6 +209,7 @@ void test('healthService.getHealth covers every enabled host, not just the first
   const restore = [
     overrideProperty(prisma.host, 'findMany', ({ take }: { take?: number }) => Promise.resolve(hosts.slice(0, take) as any)),
     overrideProperty(prisma.host, 'count', () => Promise.resolve(hosts.length)),
+    overrideProperty(prisma.srvRecord, 'findMany', () => Promise.resolve([])),
     stubDocker([personal, work].map((t) => ({
       name: dockerService.containerNameForToken(t.id), state: 'running', status: 'Up',
     }))),

@@ -17,6 +17,7 @@ model ApiToken {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   hosts       Host[]
+  srvRecords  SrvRecord[]
 }
 
 model Host {
@@ -34,6 +35,31 @@ model Host {
   updatedAt   DateTime @updatedAt
 
   @@unique([zone, hostname, recordType])
+}
+
+model SrvRecord {
+  id           Int       @id @default(autoincrement())
+  zone         String
+  hostname     String
+  service      String
+  proto        String    @default("tcp")
+  priority     Int       @default(0)
+  weight       Int       @default(0)
+  port         Int
+  target       String
+  ttl          Int       @default(1)
+  description  String?
+  enabled      Boolean   @default(true)
+  tokenId      Int
+  token        ApiToken  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  cfRecordId   String?
+  syncState    String    @default("pending")
+  lastError    String?
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([zone, hostname, service, proto])
 }
 
 model Setting {

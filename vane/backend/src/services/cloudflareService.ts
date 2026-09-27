@@ -13,6 +13,13 @@ export interface CfZone {
   status: string
 }
 
+export interface CfSrvData {
+  priority: number
+  weight: number
+  port: number
+  target: string
+}
+
 export interface CfDnsRecord {
   id: string
   type: string
@@ -20,6 +27,8 @@ export interface CfDnsRecord {
   content: string
   proxied: boolean
   ttl: number
+  priority?: number
+  data?: Partial<CfSrvData>
 }
 
 export class CloudflareNetworkError extends Error {
@@ -29,11 +38,28 @@ export class CloudflareNetworkError extends Error {
   }
 }
 
-async function cf<T>(
+export class CloudflareApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'CloudflareApiError'
+    this.status = status
+  }
+}
+
+const RECORD_NOT_FOUND = 81044
+
+interface CfResponse<T> {
+  status: number
+  body: CfResult<T>
+}
+
+async function cfRequest<T>(
   token: string,
   pathname: string,
   init?: { method?: string; body?: unknown },
-): Promise<CfResult<T>> {
+): Promise<CfResponse<T>> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 8000)
   try {
@@ -46,7 +72,7 @@ async function cf<T>(
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
       signal: controller.signal,
     })
-    return (await res.json()) as CfResult<T>
+    return { status: res.status, body: (await res.json()) as CfResult<T> }
   } catch (err) {
     const code = (err as { cause?: { code?: string } })?.cause?.code
     const reason = code ?? (err instanceof Error ? err.message : 'unknown')
@@ -54,6 +80,30 @@ async function cf<T>(
   } finally {
     clearTimeout(timer)
   }
+}
+
+async function cf<T>(
+  token: string,
+  pathname: string,
+  init?: { method?: string; body?: unknown },
+): Promise<CfResult<T>> {
+  return (await cfRequest<T>(token, pathname, init)).body
+}
+
+function apiError(res: CfResponse<unknown>, fallback: string): CloudflareApiError {
+  const detail = res.body?.errors?.map((e) => `${e.message} (${e.code})`).join('; ')
+  return new CloudflareApiError(detail || fallback, res.status)
+}
+
+async function cfStrict<T>(
+  token: string,
+  pathname: string,
+  fallback: string,
+  init?: { method?: string; body?: unknown },
+): Promise<T> {
+  const res = await cfRequest<T>(token, pathname, init)
+  if (!res.body?.success) throw apiError(res, fallback)
+  return res.body.result
 }
 
 export interface TokenValidation {
@@ -141,6 +191,62 @@ export async function listZoneRecords(token: string, zoneName: string): Promise<
     records.push(...res.result)
     if (page >= (res.result_info?.total_pages ?? 1)) return records
   }
+}
+
+export async function findZoneStrict(token: string, zoneName: string): Promise<CfZone | null> {
+  const zones = await cfStrict<CfZone[]>(
+    token,
+    `/zones?name=${encodeURIComponent(zoneName)}`,
+    `Failed to look up zone "${zoneName}".`,
+  )
+  return zones[0] ?? null
+}
+
+export async function getDnsRecord(token: string, zoneId: string, recordId: string): Promise<CfDnsRecord | null> {
+  const res = await cfRequest<CfDnsRecord>(token, `/zones/${zoneId}/dns_records/${encodeURIComponent(recordId)}`)
+  if (res.body?.success) return res.body.result
+  if (res.status === 404 || res.body?.errors?.some((e) => e.code === RECORD_NOT_FOUND)) return null
+  throw apiError(res, `Failed to read DNS record ${recordId}.`)
+}
+
+export async function listSrvRecords(token: string, zoneId: string, name: string): Promise<CfDnsRecord[]> {
+  return cfStrict<CfDnsRecord[]>(
+    token,
+    `/zones/${zoneId}/dns_records?type=SRV&name=${encodeURIComponent(name)}`,
+    `Failed to list SRV records at ${name}.`,
+  )
+}
+
+export interface SrvRecordBody {
+  name: string
+  ttl: number
+  data: CfSrvData
+}
+
+export async function createSrvRecord(
+  token: string,
+  zoneId: string,
+  record: SrvRecordBody,
+  comment: string,
+): Promise<CfDnsRecord> {
+  return cfStrict<CfDnsRecord>(token, `/zones/${zoneId}/dns_records`, `Failed to create SRV record ${record.name}.`, {
+    method: 'POST',
+    body: { type: 'SRV', name: record.name, ttl: record.ttl, data: record.data, comment },
+  })
+}
+
+export async function updateSrvRecord(
+  token: string,
+  zoneId: string,
+  recordId: string,
+  record: SrvRecordBody,
+): Promise<CfDnsRecord> {
+  return cfStrict<CfDnsRecord>(
+    token,
+    `/zones/${zoneId}/dns_records/${encodeURIComponent(recordId)}`,
+    `Failed to update SRV record ${record.name}.`,
+    { method: 'PATCH', body: { type: 'SRV', name: record.name, ttl: record.ttl, data: record.data } },
+  )
 }
 
 export async function deleteRecord(token: string, zoneId: string, recordId: string): Promise<boolean> {
