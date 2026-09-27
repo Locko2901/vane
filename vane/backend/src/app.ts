@@ -9,6 +9,7 @@ import { logsRouter } from './routes/logs.routes'
 import { settingsRouter } from './routes/settings.routes'
 import { configRouter } from './routes/config.routes'
 import { backupRouter } from './routes/backup.routes'
+import { srvRouter } from './routes/srv.routes'
 
 export function createApp(): express.Express {
   const app = express()
@@ -22,6 +23,7 @@ export function createApp(): express.Express {
 
   app.use('/api/tokens', tokensRouter)
   app.use('/api/hosts', hostsRouter)
+  app.use('/api/srv', srvRouter)
   app.use('/api/dashboard', dashboardRouter)
   app.use('/api/logs', logsRouter)
   app.use('/api/settings', settingsRouter)
