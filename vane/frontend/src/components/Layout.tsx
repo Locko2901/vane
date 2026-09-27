@@ -5,6 +5,7 @@ import { prefetchRoute } from '../routes'
 const nav = [
   { to: '/', label: 'Dashboard', icon: 'fa-gauge-high' },
   { to: '/hosts', label: 'Hosts', icon: 'fa-globe' },
+  { to: '/srv', label: 'SRV Records', icon: 'fa-signs-post' },
   { to: '/tokens', label: 'API Tokens', icon: 'fa-key' },
   { to: '/logs', label: 'Logs', icon: 'fa-file-lines' },
   { to: '/backup', label: 'Backup', icon: 'fa-floppy-disk' },

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
 import { useToast } from '../contexts/ToastContext'
-import type { ApiTokenDTO, CfRecord, HostDTO } from '../types'
+import type { ApiTokenDTO, CfRecord, HostDTO, SrvSyncSummary } from '../types'
 import HostWizard from '../components/HostWizard'
 
 interface CleanupResult {
@@ -134,9 +134,9 @@ export default function Hosts() {
   const applyConfig = async () => {
     setApplying(true)
     try {
-      const res = await api.post<{ warnings: string[]; recreated: boolean; message: string }>('/config/apply')
+      const res = await api.post<{ warnings: string[]; recreated: boolean; message: string; srvSync?: SrvSyncSummary }>('/config/apply')
       res.warnings.forEach((w) => toast(w, 'info'))
-      toast(res.message, res.recreated ? 'success' : 'error')
+      toast(res.message, res.recreated && !res.srvSync?.failed ? 'success' : 'error')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Apply failed.', 'error')
     } finally {

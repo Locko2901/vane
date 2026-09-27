@@ -8,6 +8,7 @@ interface BackupPreview {
   exportedAt: string
   tokens: string[]
   hosts: number
+  srvRecords?: number
   settings: number
 }
 
@@ -106,11 +107,16 @@ export default function Backup() {
     setRestoring(true)
     try {
       const data = toBase64(await importFile.arrayBuffer())
-      const res = await api.post<{ tokens: number; hosts: number }>('/backup/import', {
+      const res = await api.post<{ tokens: number; hosts: number; srvRecords?: number }>('/backup/import', {
         password: importPassword,
         data,
       })
-      toast(`Restored ${res.tokens} token(s) and ${res.hosts} host(s).`, 'success')
+      toast(
+        res.srvRecords
+          ? `Restored ${res.tokens} token(s), ${res.hosts} host(s) and ${res.srvRecords} SRV record(s).`
+          : `Restored ${res.tokens} token(s) and ${res.hosts} host(s).`,
+        'success',
+      )
       resetImport()
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Restore failed.', 'error')
@@ -126,7 +132,7 @@ export default function Backup() {
       <div className="card space-y-3">
         <h2 className="font-semibold">Export encrypted backup</h2>
         <p className="text-sm text-slate-500">
-          Bundles all tokens, hosts and settings into a single <code>.bin</code> file, encrypted
+          Bundles all tokens, hosts, SRV records and settings into a single <code>.bin</code> file, encrypted
           with your password (Argon2id + AES-256-GCM). The file contains your API tokens, so keep it
           and the password safe.
         </p>
@@ -147,7 +153,7 @@ export default function Backup() {
       <div className="card space-y-3">
         <h2 className="font-semibold">Import backup</h2>
         <p className="text-sm text-slate-500">
-          Restoring <strong>replaces</strong> all current tokens and hosts with the contents of the
+          Restoring <strong>replaces</strong> all current tokens, hosts and SRV records with the contents of the
           backup. Preview first to confirm what it contains.
         </p>
         <input
@@ -189,6 +195,7 @@ export default function Backup() {
                 Tokens ({preview.tokens.length}): {preview.tokens.join(', ') || '—'}
               </li>
               <li>Hosts: {preview.hosts}</li>
+              <li>SRV records: {preview.srvRecords ?? 0}</li>
               <li>Settings: {preview.settings}</li>
             </ul>
           </div>

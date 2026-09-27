@@ -123,7 +123,7 @@ export default function Tokens() {
               )}
             </div>
             <div className="font-mono text-sm text-slate-500">{t.masked}</div>
-            <div className="text-xs text-slate-500">{t.hostCount} host(s)</div>
+            <div className="text-xs text-slate-500">{t.hostCount} host(s), {t.srvCount} SRV record(s)</div>
             <div className="flex flex-wrap gap-1 pt-1">
               <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => test(t)}><i className="fa-solid fa-vial" />Test</button>
               <button className="btn-secondary flex-1 justify-center sm:flex-none" onClick={() => rename(t)}><i className="fa-solid fa-pen" />Rename</button>

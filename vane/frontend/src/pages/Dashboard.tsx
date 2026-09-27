@@ -153,7 +153,7 @@ export default function Dashboard() {
             {health.records.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center text-slate-500">
                 <i className="fa-solid fa-circle-info text-2xl" />
-                <p className="text-sm">No enabled hosts to check.</p>
+                <p className="text-sm">No enabled hosts or SRV records to check.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -162,7 +162,7 @@ export default function Dashboard() {
                     <tr className="border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2 font-medium">Hostname</th>
                       <th className="font-medium">Type</th>
-                      <th className="font-medium">Expected IP</th>
+                      <th className="font-medium">Expected</th>
                       <th className="font-medium">Cloudflare Value</th>
                       <th className="font-medium">Status</th>
                     </tr>

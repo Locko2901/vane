@@ -5,6 +5,7 @@ export interface ApiTokenDTO {
   lastValid: boolean | null
   lastChecked: string | null
   hostCount: number
+  srvCount: number
 }
 
 export interface HostDTO {
@@ -20,6 +21,37 @@ export interface HostDTO {
   tokenId: number
   tokenName: string
   tokenMasked: string
+}
+
+export interface SrvRecordDTO {
+  id: number
+  zone: string
+  hostname: string
+  fqdn: string
+  service: string
+  proto: 'tcp' | 'udp' | 'tls'
+  priority: number
+  weight: number
+  port: number
+  target: string
+  ttl: number
+  description: string | null
+  enabled: boolean
+  tokenId: number
+  tokenName: string
+  cfRecordId: string | null
+  syncState: 'pending' | 'ok' | 'error'
+  lastError: string | null
+  lastSyncedAt: string | null
+}
+
+export interface SrvSyncSummary {
+  created: number
+  adopted: number
+  updated: number
+  unchanged: number
+  failed: number
+  errors: string[]
 }
 
 export interface CfRecord {
