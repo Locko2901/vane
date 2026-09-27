@@ -175,6 +175,96 @@ describe('main UI flows', () => {
     expect(await screen.findByText('Settings saved.')).toBeTruthy()
   })
 
+  it('lists SRV records with their sync state', async () => {
+    const base = {
+      zone: 'lockoo.dev', service: 'minecraft', proto: 'tcp', priority: 0, weight: 0, target: 'skyblock.lockoo.dev', ttl: 1,
+      description: null, enabled: true, tokenId: 7, tokenName: 'Personal', cfRecordId: null, lastError: null, lastSyncedAt: null,
+    }
+    const refused = '2 SRV records exist at _minecraft._tcp.creative.lockoo.dev; remove the extras in Cloudflare.'
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/settings') return Promise.resolve({ theme: 'dark' })
+      if (url === '/tokens') return Promise.resolve([])
+      if (url === '/srv') {
+        return Promise.resolve([
+          { ...base, id: 1, hostname: 'skyblock', fqdn: '_minecraft._tcp.skyblock.lockoo.dev', port: 25566, description: '[vanander] 17d9', cfRecordId: 'cf-1', syncState: 'ok', lastSyncedAt: '2026-09-27T12:00:00.000Z' },
+          { ...base, id: 2, hostname: 'lobby', fqdn: '_minecraft._tcp.lobby.lockoo.dev', port: 25567, enabled: false, syncState: 'pending' },
+          { ...base, id: 3, hostname: 'creative', fqdn: '_minecraft._tcp.creative.lockoo.dev', port: 25568, priority: 10, weight: 5, ttl: 300, syncState: 'error', lastError: refused },
+        ])
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    renderApp('/srv')
+
+    expect(await screen.findByText('_minecraft._tcp.skyblock.lockoo.dev')).toBeTruthy()
+    expect(screen.getByText('[vanander] 17d9')).toBeTruthy()
+    expect(screen.getByText('skyblock.lockoo.dev:25566')).toBeTruthy()
+    expect(screen.getByText('10 / 5')).toBeTruthy()
+    expect(screen.getByText('300')).toBeTruthy()
+    expect(screen.getByText('In sync')).toBeTruthy()
+    expect(screen.getByText('Pending')).toBeTruthy()
+    expect(screen.getByText('Error').getAttribute('title')).toBe(refused)
+    expect(screen.getByRole('switch', { name: 'Disable _minecraft._tcp.skyblock.lockoo.dev' }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('switch', { name: 'Enable _minecraft._tcp.lobby.lockoo.dev' }).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('posts a normalized SRV record from the form', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/settings') return Promise.resolve({ theme: 'dark' })
+      if (url === '/srv') return Promise.resolve([])
+      if (url === '/tokens') {
+        return Promise.resolve([{ id: 7, name: 'Personal', masked: 'abcd****wxyz', lastValid: null, lastChecked: null, hostCount: 0, srvCount: 0 }])
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+    apiMock.post.mockResolvedValue({ id: 12 })
+
+    renderApp('/srv')
+
+    fireEvent.click(await screen.findByRole('button', { name: /add srv record/i }))
+    fireEvent.change(screen.getByLabelText('Zone'), { target: { value: 'lockoo.dev' } })
+    fireEvent.change(screen.getByLabelText('Hostname'), { target: { value: 'skyblock' } })
+    fireEvent.change(screen.getByLabelText('Service'), { target: { value: '_Minecraft' } })
+    fireEvent.change(screen.getByLabelText('Target'), { target: { value: 'SkyBlock.Lockoo.Dev.' } })
+    fireEvent.change(screen.getByLabelText('Port'), { target: { value: '25566' } })
+    fireEvent.change(screen.getByLabelText('Description (optional)'), { target: { value: '[vanander] 17d9 ' } })
+
+    expect(screen.getByText('_minecraft._tcp.skyblock.lockoo.dev')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/srv', {
+      zone: 'lockoo.dev',
+      hostname: 'skyblock',
+      service: 'minecraft',
+      proto: 'tcp',
+      priority: 0,
+      weight: 0,
+      port: 25566,
+      target: 'skyblock.lockoo.dev',
+      ttl: 1,
+      description: '[vanander] 17d9 ',
+      tokenId: 7,
+      enabled: true,
+    }))
+    expect(await screen.findByText('SRV record added. Click "Sync now" to publish it.')).toBeTruthy()
+  })
+
+  it('syncs SRV records on demand', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/settings') return Promise.resolve({ theme: 'dark' })
+      if (url === '/srv' || url === '/tokens') return Promise.resolve([])
+      throw new Error(`Unexpected GET ${url}`)
+    })
+    apiMock.post.mockResolvedValue({ created: 1, adopted: 0, updated: 0, unchanged: 2, failed: 0, errors: [] })
+
+    renderApp('/srv')
+
+    fireEvent.click(await screen.findByRole('button', { name: /sync now/i }))
+
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/srv/sync'))
+    expect(await screen.findByText('SRV sync: 1 created, 2 unchanged.')).toBeTruthy()
+  })
+
   it('can export, preview and restore a backup', async () => {
     const fetchMock = vi.fn(() => Promise.resolve(new Response(new Blob(['backup-data'], { type: 'application/octet-stream' }), { status: 200 })))
     vi.stubGlobal('fetch', fetchMock)
