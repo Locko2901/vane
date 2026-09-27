@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.0](https://github.com/Locko2901/vane/compare/v1.2.2...v1.3.0) (2026-09-27)
+
+
+### Features
+
+* **srv:** add the /api/srv routes ([ae6b7ba](https://github.com/Locko2901/vane/commit/ae6b7ba3d5d689f97cd2c37442393feb08ca6161))
+* **srv:** add the SRV records page ([4a80cdd](https://github.com/Locko2901/vane/commit/4a80cdd0abcc8127d854fce1db88aa3f2d632856))
+* **srv:** show SRV records in health, backups and the token list ([92ae71f](https://github.com/Locko2901/vane/commit/92ae71f9e4bcb797db0e1fb7fb4b97bfdcc58b27))
+* **srv:** store SRV records and sync them straight to Cloudflare ([f89fd56](https://github.com/Locko2901/vane/commit/f89fd56e66ace3e428cb04efc06f3bb74dd97074))
+
+
+### Documentation
+
+* **srv:** document SRV records in the README ([cc4fe95](https://github.com/Locko2901/vane/commit/cc4fe9564bc058aca7a8e3a76d30c5eb8bb577a2))
+
+
+### Tests
+
+* **srv:** pin the SRV API contract, sync rules and cleanup ([734dcc0](https://github.com/Locko2901/vane/commit/734dcc0a52fb68030f32b16a68b969e8af9c355b))
+
 ## [1.2.2](https://github.com/Locko2901/vane/compare/v1.2.1...v1.2.2) (2026-09-24)
 
 
