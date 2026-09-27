@@ -20,7 +20,23 @@ interface BackupFile {
     enabled: boolean
     tokenName: string
   }>
+  srvRecords?: BackupSrvRecord[]
   settings: Record<string, string>
+}
+
+interface BackupSrvRecord {
+  zone: string
+  hostname: string
+  service: string
+  proto: string
+  priority: number
+  weight: number
+  port: number
+  target: string
+  ttl: number
+  description: string | null
+  enabled: boolean
+  tokenName: string
 }
 
 const backupSchema = z.object({
@@ -38,6 +54,24 @@ const backupSchema = z.object({
       tokenName: z.string(),
     }),
   ),
+  srvRecords: z
+    .array(
+      z.object({
+        zone: z.string(),
+        hostname: z.string(),
+        service: z.string(),
+        proto: z.string(),
+        priority: z.number(),
+        weight: z.number(),
+        port: z.number(),
+        target: z.string(),
+        ttl: z.number(),
+        description: z.string().nullable().optional(),
+        enabled: z.boolean(),
+        tokenName: z.string(),
+      }),
+    )
+    .optional(),
   settings: z.record(z.string(), z.string()).optional(),
 })
 
@@ -51,6 +85,7 @@ const importSchema = z.object({ password: passwordSchema, data: z.string().min(1
 async function buildBundle(): Promise<BackupFile> {
   const tokens = await prisma.apiToken.findMany()
   const hosts = await prisma.host.findMany({ include: { token: true } })
+  const srvRecords = await prisma.srvRecord.findMany({ include: { token: true } })
   const settings = await prisma.setting.findMany()
 
   return {
@@ -66,6 +101,20 @@ async function buildBundle(): Promise<BackupFile> {
       description: h.description,
       enabled: h.enabled,
       tokenName: h.token.name,
+    })),
+    srvRecords: srvRecords.map((r) => ({
+      zone: r.zone,
+      hostname: r.hostname,
+      service: r.service,
+      proto: r.proto,
+      priority: r.priority,
+      weight: r.weight,
+      port: r.port,
+      target: r.target,
+      ttl: r.ttl,
+      description: r.description,
+      enabled: r.enabled,
+      tokenName: r.token.name,
     })),
     settings: Object.fromEntries(settings.map((s) => [s.key, s.value])),
   }
@@ -116,6 +165,7 @@ backupRouter.post('/preview', async (req, res) => {
       exportedAt: bundle.exportedAt,
       tokens: bundle.tokens.map((t) => t.name),
       hosts: bundle.hosts.length,
+      srvRecords: bundle.srvRecords?.length ?? 0,
       settings: Object.keys(bundle.settings).length,
     })
   } catch (err) {
@@ -140,6 +190,7 @@ backupRouter.post('/import', async (req, res) => {
 
   await prisma.$transaction(async (tx) => {
     await tx.host.deleteMany()
+    await tx.srvRecord.deleteMany()
     await tx.apiToken.deleteMany()
 
     const tokenMap = new Map<string, number>()
@@ -165,6 +216,27 @@ backupRouter.post('/import', async (req, res) => {
         },
       })
     }
+    for (const r of data.srvRecords ?? []) {
+      const tokenId = tokenMap.get(r.tokenName)
+      if (!tokenId) continue
+      await tx.srvRecord.create({
+        data: {
+          zone: r.zone,
+          hostname: r.hostname,
+          service: r.service,
+          proto: r.proto,
+          priority: r.priority,
+          weight: r.weight,
+          port: r.port,
+          target: r.target,
+          ttl: r.ttl,
+          description: r.description ?? null,
+          enabled: r.enabled,
+          tokenId,
+          syncState: 'pending',
+        },
+      })
+    }
     if (data.settings) {
       for (const [key, value] of Object.entries(data.settings)) {
         await tx.setting.upsert({ where: { key }, create: { key, value }, update: { value } })
@@ -172,5 +244,5 @@ backupRouter.post('/import', async (req, res) => {
     }
   })
 
-  res.json({ ok: true, tokens: data.tokens.length, hosts: data.hosts.length })
+  res.json({ ok: true, tokens: data.tokens.length, hosts: data.hosts.length, srvRecords: data.srvRecords?.length ?? 0 })
 })

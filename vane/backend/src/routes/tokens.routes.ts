@@ -14,7 +14,7 @@ const tokenSchema = z.object({
 tokensRouter.get('/', async (_req, res) => {
   const tokens = await prisma.apiToken.findMany({
     orderBy: { name: 'asc' },
-    include: { _count: { select: { hosts: true } } },
+    include: { _count: { select: { hosts: true, srvRecords: true } } },
   })
   res.json(
     tokens.map((t) => ({
@@ -24,6 +24,7 @@ tokensRouter.get('/', async (_req, res) => {
       lastValid: t.lastValid,
       lastChecked: t.lastChecked,
       hostCount: t._count.hosts,
+      srvCount: t._count.srvRecords,
     })),
   )
 })

@@ -2,7 +2,8 @@ import { prisma } from '../db'
 import { decrypt } from '../crypto'
 import * as dockerService from './dockerService'
 import { listZoneRecords, verifyTokenOnly, CloudflareNetworkError, type CfDnsRecord } from './cloudflareService'
-import { fqdn } from './configService'
+import { fqdn, srvName } from './configService'
+import { formatSrvData, srvDataOf } from './srvService'
 
 export async function getPublicIPv4(): Promise<string | null> {
   return tracedIp('https://1.1.1.1/cdn-cgi/trace')
@@ -90,6 +91,11 @@ export async function getHealth(): Promise<HealthReport> {
     include: { token: true },
     orderBy: [{ zone: 'asc' }, { hostname: 'asc' }, { recordType: 'asc' }],
   })
+  const srvRecords = await prisma.srvRecord.findMany({
+    where: { enabled: true },
+    include: { token: true },
+    orderBy: [{ zone: 'asc' }, { hostname: 'asc' }, { service: 'asc' }, { proto: 'asc' }],
+  })
   const needsIPv6 = hosts.some((h) => h.recordType === 'AAAA' || h.recordType === 'BOTH')
 
   const tokensWithHosts = [...new Map(hosts.map((h) => [h.tokenId, h.token.name])).entries()].map(
@@ -129,7 +135,7 @@ export async function getHealth(): Promise<HealthReport> {
   let networkIssue = false
 
   const distinctTokens = new Map<number, string>()
-  for (const h of hosts) distinctTokens.set(h.tokenId, h.token.ciphertext)
+  for (const r of [...hosts, ...srvRecords]) distinctTokens.set(r.tokenId, r.token.ciphertext)
   const tokenStatus = new Map<number, 'ok' | 'auth' | 'network'>()
   await Promise.all(
     [...distinctTokens.entries()].map(async ([tokenId, ciphertext]) => {
@@ -151,17 +157,17 @@ export async function getHealth(): Promise<HealthReport> {
   )
 
   const zoneRecords = new Map<string, Promise<CfDnsRecord[]>>()
-  const recordsForZone = (h: (typeof hosts)[number]): Promise<CfDnsRecord[]> => {
-    const key = `${h.tokenId}:${h.zone}`
+  const recordsForZone = (r: { tokenId: number; zone: string; token: { ciphertext: string } }): Promise<CfDnsRecord[]> => {
+    const key = `${r.tokenId}:${r.zone}`
     let pending = zoneRecords.get(key)
     if (!pending) {
-      pending = listZoneRecords(decrypt(h.token.ciphertext), h.zone)
+      pending = listZoneRecords(decrypt(r.token.ciphertext), r.zone)
       zoneRecords.set(key, pending)
     }
     return pending
   }
 
-  const records = await Promise.all(
+  const hostRecords = await Promise.all(
     hosts.map(async (h): Promise<HealthReport['records'][number]> => {
       const name = fqdn(h.zone, h.hostname)
       const wantType = h.recordType === 'BOTH' ? 'A' : h.recordType
@@ -185,6 +191,29 @@ export async function getHealth(): Promise<HealthReport> {
       }
     }),
   )
+
+  const srvHealth = await Promise.all(
+    srvRecords.map(async (r): Promise<HealthReport['records'][number]> => {
+      const name = srvName(r)
+      const expected = formatSrvData(r)
+      if (tokenStatus.get(r.tokenId) !== 'ok') {
+        return { hostname: name, type: 'SRV', expected, cloudflareValue: null, updateNeeded: false }
+      }
+      try {
+        const atName = (await recordsForZone(r)).filter(
+          (c) => c.type === 'SRV' && c.name.toLowerCase() === name,
+        )
+        const match = atName.find((c) => c.id === r.cfRecordId) ?? atName[0]
+        const data = match ? srvDataOf(match) : null
+        const cloudflareValue = data ? formatSrvData(data) : null
+        return { hostname: name, type: 'SRV', expected, cloudflareValue, updateNeeded: cloudflareValue !== expected }
+      } catch (err) {
+        if (err instanceof CloudflareNetworkError) networkIssue = true
+        return { hostname: name, type: 'SRV', expected, cloudflareValue: null, updateNeeded: false }
+      }
+    }),
+  )
+  const records = [...hostRecords, ...srvHealth]
 
   if (authFailed) {
     banners.push({ level: 'error', message: 'Cloudflare authentication failed for one or more hosts.' })

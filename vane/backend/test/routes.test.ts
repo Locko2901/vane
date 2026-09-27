@@ -56,6 +56,7 @@ void test('backup routes export, preview and import backup bundles', async () =>
       enabled: true,
       token: { name: 'Personal', ciphertext: tokenCiphertext },
     }])),
+    overrideProperty(prisma.srvRecord, 'findMany', () => Promise.resolve([])),
     overrideProperty(prisma.setting, 'findMany', () => Promise.resolve([{ key: 'theme', value: 'dark' }])),
     overrideProperty(prisma, '$transaction', (callback: (tx: any) => Promise<void>) => {
       return callback({
@@ -64,6 +65,10 @@ void test('backup routes export, preview and import backup bundles', async () =>
           create: ({ data }: any) => Promise.resolve({ id: 1, ...data }),
         },
         host: {
+          deleteMany: () => Promise.resolve(undefined),
+          create: ({ data }: any) => Promise.resolve({ id: 1, ...data }),
+        },
+        srvRecord: {
           deleteMany: () => Promise.resolve(undefined),
           create: ({ data }: any) => Promise.resolve({ id: 1, ...data }),
         },
@@ -92,6 +97,7 @@ void test('backup routes export, preview and import backup bundles', async () =>
     assert.deepEqual(await preview.json(), {
       tokens: ['Personal'],
       hosts: 1,
+      srvRecords: 0,
       settings: 1,
     })
 
@@ -100,7 +106,7 @@ void test('backup routes export, preview and import backup bundles', async () =>
       body: JSON.stringify({ password: 'super-secret', data: encryptedBundle.toString('base64') }),
     })
     assert.equal(imported.status, 200)
-    assert.deepEqual(await imported.json(), { ok: true, tokens: 1, hosts: 1 })
+    assert.deepEqual(await imported.json(), { ok: true, tokens: 1, hosts: 1, srvRecords: 0 })
   } finally {
     for (const restoreOne of restore.reverse()) restoreOne()
     await close()
@@ -118,7 +124,7 @@ void test('tokens routes list, create and delete tokens', async () => {
         ciphertext: tokenCiphertext,
         lastValid: null,
         lastChecked: null,
-        _count: { hosts: 0 },
+        _count: { hosts: 0, srvRecords: 2 },
       },
     ] as any)),
     overrideProperty(prisma.apiToken, 'create', ({ data }: any) => Promise.resolve({ id: 2, ...data })),
@@ -136,6 +142,7 @@ void test('tokens routes list, create and delete tokens', async () => {
       lastValid: null,
       lastChecked: null,
       hostCount: 0,
+      srvCount: 2,
     }])
 
     const created = await request(baseUrl, '/api/tokens', {
