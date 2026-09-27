@@ -41,6 +41,7 @@ Vane never modifies the DDNS image. It communicates with Docker
 - [Quick start](#quick-start)
 - [Environment variables](#environment-variables)
 - [How configuration is applied](#how-configuration-is-applied)
+- [SRV records](#srv-records)
 - [Migrating an existing setup](#migrating-an-existing-setup)
 - [Backup and restore](#backup-and-restore)
 - [Development](#development)
@@ -91,6 +92,9 @@ The management layer on top of favonia:
 - **Add Host Wizard** - token picker, zone, hostname (`@`/`sub`), record type
   (A / AAAA / Both), proxy toggle, TTL (auto/custom), description, and **live
   validation** against the Cloudflare API before saving.
+- **SRV records** - point `_service._proto` names at a host and port so players
+  don't have to type `:port`. Written straight to Cloudflare, not through
+  favonia. See [SRV records](#srv-records).
 - **Multiple API tokens** - store unlimited Cloudflare API tokens (Personal,
   Work, Homelab...). Each host picks which token to use, and the manager runs a
   **separate favonia container per token** so every token syncs simultaneously.
@@ -104,12 +108,12 @@ The management layer on top of favonia:
   auto-refresh, search and download.
 - **Restart management** - Save & Restart recreates the DDNS container(s) so new
   env takes effect; errors are surfaced as toasts.
-- **Backup** - password-encrypted export/import of tokens, hosts and settings as
-  a single `.bin` file (Argon2id + AES-256-GCM). See
+- **Backup** - password-encrypted export/import of tokens, hosts, SRV records
+  and settings as a single `.bin` file (Argon2id + AES-256-GCM). See
   [Backup and restore](#backup-and-restore).
 - **Settings** - container name, dashboard refresh interval, light/dark theme,
-  and optional deletion of app-managed Cloudflare records when a host is
-  removed or disabled.
+  and optional deletion of app-managed Cloudflare records when a host or SRV
+  record is removed or disabled.
 
 ---
 
@@ -373,6 +377,8 @@ docker compose up -d --build vane
    token** (`cloudflare-ddns-t<tokenId>`), derived from the compose-defined
    `cloudflare-ddns` template (image, restart policy, DNS, network). Containers
    for tokens that no longer have enabled hosts are removed automatically.
+4. Enabled [SRV records](#srv-records) are synced to Cloudflare in the same
+   step, even when no host is enabled.
 
 > **Multiple API tokens:** each API token gets its own favonia
 > container, so several tokens sync at the same time. favonia's one-token
@@ -418,6 +424,43 @@ of hosts. Things to keep in mind:
 If you have several tokens but don't need them isolated, you can reduce
 container count by consolidating hosts onto fewer tokens - a single token
 handles unlimited domains within its zones.
+
+---
+
+## SRV records
+
+SRV records hide a non-default port. Several game servers behind one public IP
+can't all use the default port (25565 for Minecraft Java), so every server but
+one needs `:port` in its address. An SRV record fixes that: the Minecraft client
+looks up `_minecraft._tcp.<name>` and connects to the port it finds there.
+
+| Record | Name                                   | Value                            | Written by |
+| ------ | -------------------------------------- | -------------------------------- | ---------- |
+| A      | `skyblock.example.com`                 | your public IP                   | favonia (a normal host) |
+| SRV    | `_minecraft._tcp.skyblock.example.com` | `0 0 25566 skyblock.example.com` | Vane       |
+
+Players then type `skyblock.example.com`.
+
+SRV records **don't go through favonia**. They hold a port and a hostname but no
+IP, so they never need dynamic DNS: Vane writes them straight to the Cloudflare
+API with the token you pick. The target's A/AAAA record stays a normal host.
+
+Add them on the **SRV Records** page or through `/api/srv`. Saving only stores
+the record; **Sync now** or **Save & Restart DDNS** publishes it. Vane tracks the
+live record by its Cloudflare id. Without an id, it checks the SRV records
+already at that name:
+
+- **None:** Vane creates one.
+- **Exactly one:** Vane adopts it, so a record you made by hand is taken over
+  rather than duplicated.
+- **More than one:** Vane refuses, marks the row as an error and touches none
+  of them. Remove the extras in Cloudflare and sync again.
+
+If a lookup fails for any other reason (auth, rate limit, network), the row is
+marked as an error and nothing is created. With "delete records on removal"
+on, deleting or disabling an SRV record removes the tracked record. Without a
+tracked id, Vane only deletes a record at the name if it is the only one there
+and matches the row exactly.
 
 
 ---
@@ -465,15 +508,16 @@ hand in the UI, then **Save & Restart**:
 - **Container named something other than `cloudflare-ddns`** without setting
   `DDNS_CONTAINER`: nothing is found to import.
 
-Nothing is destructive: the manager never edits your DDNS image or Cloudflare
-records unless you enable the optional "delete records on removal" setting.
+Nothing is destructive: the manager never edits your DDNS image, only writes
+Cloudflare records directly for [SRV records](#srv-records) you add, and only
+deletes records if you enable the optional "delete records on removal" setting.
 
 ---
 
 ## Backup and restore
 
 The **Backup** page exports and imports your entire configuration - tokens,
-hosts, and settings - as a single **password-encrypted** `.bin` file. Useful for
+hosts, SRV records and settings - as a single **password-encrypted** `.bin` file. Useful for
 migrating to a new server, cloning a setup, or keeping offline backups.
 
 ### Usage
@@ -483,9 +527,11 @@ migrating to a new server, cloning a setup, or keeping offline backups.
 - **Import**: choose a `.bin` file, enter its password, click **Preview** to
   verify the contents, then **Restore backup**.
 
-> **Import replaces everything.** Existing tokens and hosts are **deleted** and
-> recreated from the file (settings are merged). Export first if you want a
-> rollback point, then click **Save & Restart** afterwards to apply.
+> **Import replaces everything.** Existing tokens, hosts and SRV records are
+> **deleted** and recreated from the file (settings are merged). Export first if
+> you want a rollback point, then click **Save & Restart** afterwards to apply.
+> Restored SRV records find their live Cloudflare records again by name on the
+> next sync.
 
 The backup contains your Cloudflare API tokens. Store the file securely and use
 a strong password - anyone with both can recover the tokens.
