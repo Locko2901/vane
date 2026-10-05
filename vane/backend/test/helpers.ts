@@ -23,16 +23,40 @@ export function overrideProperty<T extends object, K extends keyof T>(object: T,
   }
 }
 
-export function stubDocker(containers: Array<{ name: string; state: string; status: string }> = []): () => void {
+export interface StubContainer {
+  name: string
+  state: string
+  status: string
+  env?: string[]
+}
+
+export function stubDocker(
+  containers: StubContainer[] = [],
+  created: Array<{ name: string; env: string[] }> = [],
+): () => void {
   const notFound = Object.assign(new Error('no such container'), { statusCode: 404 })
   const restore = [
     overrideProperty(Docker.prototype, 'listContainers', (() => Promise.resolve(
       containers.map((c) => ({ Names: [`/${c.name}`], State: c.state, Status: c.status })),
     )) as never),
-    overrideProperty(Docker.prototype, 'createContainer', (() => Promise.resolve({})) as never),
-    overrideProperty(Docker.prototype, 'getContainer', (() => ({
-      inspect: () => Promise.reject(notFound),
+    overrideProperty(Docker.prototype, 'createContainer', ((options: { name: string; Env: string[] }) => {
+      created.push({ name: options.name, env: options.Env })
+      return Promise.resolve({})
+    }) as never),
+    overrideProperty(Docker.prototype, 'getContainer', ((name: string) => ({
+      inspect: () => {
+        const found = containers.find((c) => c.name === name && c.env)
+        if (!found) return Promise.reject(notFound)
+        return Promise.resolve({
+          Config: { Env: found.env, Image: 'favonia/cloudflare-ddns:latest' },
+          State: { Running: found.state === 'running', Status: found.state },
+          HostConfig: {},
+          NetworkSettings: { Networks: {} },
+        })
+      },
       start: () => Promise.resolve(),
+      stop: () => Promise.resolve(),
+      remove: () => Promise.resolve(),
     })) as never),
   ]
   return () => {

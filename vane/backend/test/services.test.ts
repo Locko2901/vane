@@ -38,6 +38,7 @@ void test('configService.generateConfig groups hosts by token and emits warnings
       { id: 3, zone: 'example.net', hostname: 'home', recordType: 'A', proxied: true, ttl: 600, description: null, enabled: true, tokenId: 11, token: { name: 'Personal', ciphertext: tokenCiphertext1 } },
       { id: 4, zone: 'example.org', hostname: 'edge', recordType: 'BOTH', proxied: true, ttl: 1, description: null, enabled: true, tokenId: 12, token: { name: 'Work', ciphertext: tokenCiphertext2 } },
     ] as any)),
+    overrideProperty(prisma.setting, 'findUnique', (() => Promise.resolve(null)) as never),
   ]
 
   try {
@@ -169,9 +170,9 @@ void test('configService.applyAndRestart syncs proxy status unless the setting i
       overrideProperty(prisma.host, 'findMany', () => Promise.resolve([host] as any)),
       overrideProperty(prisma.srvRecord, 'findMany', () => Promise.resolve([])),
       overrideProperty(prisma.configHistory, 'create', () => Promise.resolve(undefined as any)),
-      overrideProperty(prisma.setting, 'findUnique', () => Promise.resolve(
-        settingValue === null ? null : { key: 'syncProxyStatus', value: settingValue } as any,
-      )),
+      overrideProperty(prisma.setting, 'findUnique', (({ where }: { where: { key: string } }) => Promise.resolve(
+        settingValue === null || where.key !== 'syncProxyStatus' ? null : { key: 'syncProxyStatus', value: settingValue },
+      )) as never),
       stubDocker(),
     ]
     try {
