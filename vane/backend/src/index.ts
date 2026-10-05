@@ -4,6 +4,7 @@ import { createApp } from './app'
 import { prisma } from './db'
 import * as configService from './services/configService'
 import * as dockerService from './services/dockerService'
+import { getUpdateSchedule } from './services/scheduleService'
 
 async function main(): Promise<void> {
   fs.mkdirSync(config.dataDir, { recursive: true })
@@ -23,6 +24,17 @@ async function main(): Promise<void> {
     }
   } catch (err) {
     console.warn('[init] Could not check DDNS container state:', err instanceof Error ? err.message : err)
+  }
+
+  try {
+    const schedule = await getUpdateSchedule()
+    for (const warning of schedule.warnings) console.warn(`[init] ${warning}`)
+    const from = { environment: ' (from DDNS_UPDATE_CRON)', setting: ' (from Settings)', default: '' }[schedule.source]
+    console.log(`[init] Update schedule: ${schedule.effective ?? "favonia's default (every 5 minutes)"}${from}.`)
+    const { recreated } = await configService.reconcileUpdateSchedule()
+    for (const r of recreated) console.log(`[init] Update schedule changed: ${r.message}`)
+  } catch (err) {
+    console.warn('[init] Could not apply the update schedule:', err instanceof Error ? err.message : err)
   }
 
   const app = createApp()

@@ -5,6 +5,7 @@ import { decrypt, encrypt } from '../crypto'
 import * as dockerService from './dockerService'
 import { syncProxiedForName } from './cloudflareService'
 import { describeSrvSync, emptySrvSummary, syncSrvRecords, type SrvSyncSummary } from './srvService'
+import { getUpdateSchedule } from './scheduleService'
 import type { Host, ApiToken, SrvRecord } from '@prisma/client'
 
 export function fqdn(zone: string, hostname: string): string {
@@ -32,7 +33,10 @@ export interface GeneratedConfig {
   warnings: string[]
 }
 
-function buildEnvForHosts(hosts: HostWithToken[]): { env: Record<string, string>; warnings: string[] } {
+function buildEnvForHosts(
+  hosts: HostWithToken[],
+  updateCron: string | null,
+): { env: Record<string, string>; warnings: string[] } {
   const warnings: string[] = []
   const apiToken = decrypt(hosts[0].token.ciphertext)
 
@@ -74,6 +78,8 @@ function buildEnvForHosts(hosts: HostWithToken[]): { env: Record<string, string>
     warnings.push('Multiple custom TTLs configured for one token; favonia uses one TTL per container. Using "1" (auto).')
   }
 
+  if (updateCron) env.UPDATE_CRON = updateCron
+
   return { env, warnings }
 }
 
@@ -94,14 +100,15 @@ export async function generateConfig(): Promise<GeneratedConfig> {
     byToken.set(h.tokenId, group)
   }
 
+  const schedule = await getUpdateSchedule()
   const instances: InstanceConfig[] = []
   for (const group of byToken.values()) {
-    const { env, warnings } = buildEnvForHosts(group)
+    const { env, warnings } = buildEnvForHosts(group, schedule.effective)
     instances.push({ tokenId: group[0].tokenId, tokenName: group[0].token.name, env, warnings })
   }
   instances.sort((a, b) => a.tokenId - b.tokenId)
 
-  const warnings = instances.flatMap((i) => i.warnings)
+  const warnings = [...schedule.warnings, ...instances.flatMap((i) => i.warnings)]
   return { instances, content: renderCombined(instances, true), warnings }
 }
 
@@ -175,6 +182,17 @@ async function syncProxiedRecords(): Promise<ProxySyncSummary> {
   return { changed, errors }
 }
 
+async function recordGenerated(generated: GeneratedConfig, note?: string): Promise<void> {
+  fs.mkdirSync(config.ddnsConfigDir, { recursive: true })
+  fs.writeFileSync(paths.ddnsEnvFile(), renderCombined(generated.instances, false) || generated.content, {
+    mode: 0o600,
+  })
+
+  await prisma.configHistory.create({
+    data: { content: renderCombined(generated.instances, true) || generated.content, note: note ?? null },
+  })
+}
+
 async function syncSrvAfterApply(): Promise<SrvSyncSummary> {
   try {
     return await syncSrvRecords()
@@ -192,15 +210,7 @@ export async function applyAndRestart(note?: string): Promise<{
   srvSync: SrvSyncSummary
 }> {
   const generated = await generateConfig()
-
-  fs.mkdirSync(config.ddnsConfigDir, { recursive: true })
-  fs.writeFileSync(paths.ddnsEnvFile(), renderCombined(generated.instances, false) || generated.content, {
-    mode: 0o600,
-  })
-
-  await prisma.configHistory.create({
-    data: { content: renderCombined(generated.instances, true) || generated.content, note: note ?? null },
-  })
+  await recordGenerated(generated, note)
 
   if (generated.instances.length === 0) {
     const stopResult = await dockerService.stopAllManaged()
@@ -238,6 +248,21 @@ export async function applyAndRestart(note?: string): Promise<{
     proxySync,
     srvSync,
   }
+}
+
+export async function reconcileUpdateSchedule(): Promise<{ recreated: dockerService.InstanceResult[] }> {
+  const generated = await generateConfig()
+  const stale: InstanceConfig[] = []
+  for (const inst of generated.instances) {
+    const running = await dockerService.getInstanceEnv(inst.tokenId)
+    if (running === null) continue
+    if ((running.UPDATE_CRON?.trim() || null) !== (inst.env.UPDATE_CRON ?? null)) stale.push(inst)
+  }
+  if (stale.length === 0) return { recreated: [] }
+
+  await recordGenerated(generated, 'Update schedule changed (applied at start-up)')
+  const recreated = await dockerService.recreateInstances(stale.map((i) => ({ tokenId: i.tokenId, env: i.env })))
+  return { recreated }
 }
 
 export async function importExistingIfNeeded(): Promise<{ imported: boolean; detail: string }> {

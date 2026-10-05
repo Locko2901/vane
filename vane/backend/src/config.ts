@@ -10,6 +10,8 @@ export const config = {
 
   ddnsContainer: process.env.DDNS_CONTAINER ?? 'cloudflare-ddns',
 
+  ddnsUpdateCron: process.env.DDNS_UPDATE_CRON ?? '',
+
   dockerSocket: process.env.DOCKER_SOCKET ?? '/var/run/docker.sock',
 } as const
 
