@@ -1,3 +1,13 @@
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${url}`, {
     method,
@@ -13,7 +23,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     } catch (error) {
       console.error(error)
     }
-    throw new Error(message)
+    throw new ApiError(message, res.status)
   }
   if (res.status === 204) return undefined as T
   const text = await res.text()
