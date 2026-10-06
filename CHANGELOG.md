@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Locko2901/vane/compare/v1.3.0...v1.4.0) (2026-10-06)
+
+
+### Features
+
+* **schedule:** add a configurable update schedule (UPDATE_CRON) ([#49](https://github.com/Locko2901/vane/issues/49)) ([b60e407](https://github.com/Locko2901/vane/commit/b60e4079ef915ed3b6f24d6afbe887b0302c341a))
+
 ## [1.3.0](https://github.com/Locko2901/vane/compare/v1.2.2...v1.3.0) (2026-09-27)
 
 
