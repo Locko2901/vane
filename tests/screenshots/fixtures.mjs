@@ -5,6 +5,15 @@ export const settings = {
   deleteRecordsOnRemoval: 'false',
 };
 
+export const updateSchedule = {
+  effective: null,
+  source: 'default',
+  setting: null,
+  environment: null,
+  readOnly: false,
+  warnings: [],
+};
+
 export const dashboard = {
   containers: [
     {
@@ -142,6 +151,7 @@ export const logContainers = [
 
 export function resolve(pathname, searchParams) {
   if (pathname === '/api/settings') return settings;
+  if (pathname === '/api/settings/update-schedule') return updateSchedule;
   if (pathname === '/api/dashboard') return dashboard;
   if (pathname === '/api/tokens') return tokens;
   if (pathname === '/api/hosts') return hosts;

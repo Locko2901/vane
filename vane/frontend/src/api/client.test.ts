@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from './client'
+import { api, ApiError } from './client'
 
 const fetchMock = vi.fn()
 
@@ -51,5 +51,15 @@ describe('api client', () => {
     )
 
     await expect(api.post('/tokens', {})).rejects.toThrow('Token is invalid')
+  })
+
+  it('keeps the HTTP status on the thrown error', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Not a schedule' }), { status: 422 }),
+    )
+
+    const error = await api.put('/settings', { updateCron: 'garbage' }).catch((err: unknown) => err)
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ message: 'Not a schedule', status: 422 })
   })
 })

@@ -161,10 +161,20 @@ async function stopBase(): Promise<void> {
   }
 }
 
+export async function recreateInstances(
+  instances: Array<{ tokenId: number; env: Record<string, string> }>,
+): Promise<InstanceResult[]> {
+  const spec = await getTemplateSpec()
+  const results: InstanceResult[] = []
+  for (const inst of instances) {
+    results.push(await recreateInstance(inst.tokenId, inst.env, spec))
+  }
+  return results
+}
+
 export async function applyInstances(
   instances: Array<{ tokenId: number; env: Record<string, string> }>,
 ): Promise<{ results: InstanceResult[]; removed: string[] }> {
-  const spec = await getTemplateSpec()
   const wanted = new Set(instances.map((i) => i.tokenId))
 
   const removed: string[] = []
@@ -175,10 +185,7 @@ export async function applyInstances(
     }
   }
 
-  const results: InstanceResult[] = []
-  for (const inst of instances) {
-    results.push(await recreateInstance(inst.tokenId, inst.env, spec))
-  }
+  const results = await recreateInstances(instances)
 
   await stopBase()
   return { results, removed }
@@ -248,9 +255,9 @@ export async function getAllLogs(tail = 200): Promise<string> {
   return sections.join('\n')
 }
 
-export async function getContainerEnv(): Promise<Record<string, string> | null> {
+async function inspectEnv(name: string): Promise<Record<string, string> | null> {
   try {
-    const info = await baseContainer().inspect()
+    const info = await docker.getContainer(name).inspect()
     const env: Record<string, string> = {}
     for (const entry of info.Config.Env ?? []) {
       const idx = entry.indexOf('=')
@@ -260,6 +267,14 @@ export async function getContainerEnv(): Promise<Record<string, string> | null> 
   } catch {
     return null
   }
+}
+
+export async function getContainerEnv(): Promise<Record<string, string> | null> {
+  return inspectEnv(config.ddnsContainer)
+}
+
+export async function getInstanceEnv(tokenId: number): Promise<Record<string, string> | null> {
+  return inspectEnv(containerNameForToken(tokenId))
 }
 
 function demuxDockerLog(buf: Buffer): string {

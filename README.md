@@ -41,6 +41,7 @@ Vane never modifies the DDNS image. It communicates with Docker
 - [Quick start](#quick-start)
 - [Environment variables](#environment-variables)
 - [How configuration is applied](#how-configuration-is-applied)
+- [Update schedule](#update-schedule)
 - [SRV records](#srv-records)
 - [Migrating an existing setup](#migrating-an-existing-setup)
 - [Backup and restore](#backup-and-restore)
@@ -74,6 +75,9 @@ These favonia features are configurable straight from the Vane UI:
 - **Cloudflare proxy** - per-host proxy (orange-cloud) toggle; mixed on/off
   selections are compiled into favonia `PROXIED=is(...)` expressions.
 - **TTL** - automatic (Cloudflare `1`) or a custom TTL per token (favonia `TTL`).
+- **Update schedule** - how often favonia checks your IP: every minute, every
+  few hours or a cron expression (favonia `UPDATE_CRON`). Set it in Settings or
+  with `DDNS_UPDATE_CRON`. See [Update schedule](#update-schedule).
 - **Per-token isolation** - one favonia container per Cloudflare API token, all
   syncing simultaneously, so a leaked or over-scoped token can only touch its
   own zones.
@@ -111,8 +115,8 @@ The management layer on top of favonia:
 - **Backup** - password-encrypted export/import of tokens, hosts, SRV records
   and settings as a single `.bin` file (Argon2id + AES-256-GCM). See
   [Backup and restore](#backup-and-restore).
-- **Settings** - container name, dashboard refresh interval, light/dark theme,
-  and optional deletion of app-managed Cloudflare records when a host or SRV
+- **Settings** - container name, [update schedule](#update-schedule), dashboard
+  refresh interval, light/dark theme, and optional deletion of app-managed Cloudflare records when a host or SRV
   record is removed or disabled.
 
 ---
@@ -132,8 +136,6 @@ weigh in.
 - **Selectable IP providers** - today Vane relies on favonia's default
   `cloudflare.trace`; expose alternatives like `cloudflare.doh`, `local`, and
   `url:...`.
-- **Custom update schedule** - configurable `UPDATE_CRON` (currently favonia's
-  default of every 5 minutes).
 - **Wildcard domains** - first-class UI support and validation for
   `*.example.org`.
 - **Internationalized domain names** - explicit UI handling for IDNs
@@ -359,6 +361,7 @@ docker compose up -d --build vane
 | Variable           | Default            | Description                                            |
 | ------------------ | ------------------ | ------------------------------------------------------ |
 | `DDNS_CONTAINER`   | `cloudflare-ddns`  | Template container name; per-token instances are named `<name>-t<id>`. |
+| `DDNS_UPDATE_CRON` | (unset)            | Update schedule for every favonia instance; wins over the Settings page. See [Update schedule](#update-schedule). |
 | `PORT`             | `3000`             | Internal listen port.                                  |
 | `DATA_DIR`         | `/data`            | SQLite DB + encryption key location.                   |
 | `DDNS_CONFIG_DIR`  | `/ddns-config`     | Where the generated `ddns.env` is written.             |
@@ -371,8 +374,9 @@ docker compose up -d --build vane
 1. You edit hosts/tokens in the UI (stored encrypted in SQLite).
 2. **Save & Restart** groups enabled hosts by their Cloudflare API token and
    generates favonia environment variables per group (`CLOUDFLARE_API_TOKEN`,
-   `DOMAINS`/`IP4_DOMAINS`/`IP6_DOMAINS`, `PROXIED`, `TTL`), writing a combined
-   record to `./cloudflare-ddns/ddns.env`.
+   `DOMAINS`/`IP4_DOMAINS`/`IP6_DOMAINS`, `PROXIED`, `TTL`, and `UPDATE_CRON`
+   when a [schedule](#update-schedule) is set), writing a combined record to
+   `./cloudflare-ddns/ddns.env`.
 3. The manager uses the Docker API to **recreate one favonia container per
    token** (`cloudflare-ddns-t<tokenId>`), derived from the compose-defined
    `cloudflare-ddns` template (image, restart policy, DNS, network). Containers
@@ -424,6 +428,67 @@ of hosts. Things to keep in mind:
 If you have several tokens but don't need them isolated, you can reduce
 container count by consolidating hosts onto fewer tokens - a single token
 handles unlimited domains within its zones.
+
+---
+
+## Update schedule
+
+favonia checks your public IP and updates Cloudflare on a schedule, every 5
+minutes by default. If your ISP hands out a new address at a known time, a
+shorter schedule cuts how long your names point at the old one.
+
+Set it in one of two places:
+
+- **Settings page**, field **Update schedule**. Stored with the other settings
+  (and included in backups).
+- **`DDNS_UPDATE_CRON`** on Vane's own container. When it is set it wins over
+  the setting, and the Settings page shows the field read-only, "set by the
+  container's environment (DDNS_UPDATE_CRON)". Handy when the stack lives in a
+  compose file or a homelab repo:
+
+  ```yaml
+    vane:
+      environment:
+        - DDNS_CONTAINER=cloudflare-ddns
+        - DDNS_UPDATE_CRON=@every 1m
+  ```
+
+Accepted values:
+
+| Value          | Meaning                                                       |
+| -------------- | ------------------------------------------------------------- |
+| `@every <n>m`  | Every _n_ minutes, at least 1: `@every 1m`, `@every 15m`.     |
+| `@every <n>h`  | Every _n_ hours: `@every 2h`.                                 |
+| 5-field cron   | `minute hour day-of-month month day-of-week`: `*/2 * * * *` (every 2 minutes), `0 */6 * * *` (every 6 hours on the hour). |
+
+Anything else is refused with the reason: seconds (`@every 30s`), mixed units
+(`@every 1h30m`), 6-field cron, descriptors such as `@hourly`, a date that
+never comes (`0 0 30 2 *`), and `@once` / `@disabled`, which would stop favonia
+from updating at all. The API answers `422`; the Settings page shows the reason
+under the field. An invalid `DDNS_UPDATE_CRON` is never passed to favonia: Vane
+ignores it, warns in its log and on the Settings page, and falls back to the
+setting (or favonia's default).
+
+Left empty, favonia keeps its default and Vane doesn't write `UPDATE_CRON` at
+all, so upgrading Vane recreates no instance.
+
+When a schedule takes effect:
+
+- **Saving a new schedule** in Settings applies the configuration and recreates
+  the instances, like **Save & Restart DDNS** (so pending host changes are
+  applied too).
+- **At start-up**, Vane compares each instance's `UPDATE_CRON` with the
+  effective schedule and recreates only the ones that differ, once, from the
+  current configuration. This is how a new `DDNS_UPDATE_CRON` reaches favonia:
+  redeploy Vane. Instances that already match keep running untouched.
+
+Through the API: `GET /api/settings/update-schedule` reports the schedule in
+effect and where it comes from; `PUT /api/settings` with `{"updateCron": "..."}`
+sets it (an empty string clears it, `409` while `DDNS_UPDATE_CRON` is set).
+
+Every instance (one per token) runs the same schedule, so a shorter one means
+more IP checks per instance; see
+[Performance and resource use](#performance-and-resource-use).
 
 ---
 

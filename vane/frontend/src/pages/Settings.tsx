@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { useToast } from '../contexts/ToastContext'
 import { applyTheme, type Theme } from '../theme'
 
@@ -12,6 +12,20 @@ interface SettingsDTO {
   [k: string]: string
 }
 
+interface UpdateScheduleDTO {
+  effective: string | null
+  source: 'environment' | 'setting' | 'default'
+  setting: string | null
+  environment: string | null
+  readOnly: boolean
+  warnings: string[]
+}
+
+interface SaveResult {
+  ok: boolean
+  apply?: { ok: boolean; instances: number; message: string; warnings: string[] }
+}
+
 const THEMES: Array<{ value: Theme; label: string; icon: string }> = [
   { value: 'light', label: 'Light', icon: 'fa-sun' },
   { value: 'dark', label: 'Dark', icon: 'fa-moon' },
@@ -21,8 +35,17 @@ const THEMES: Array<{ value: Theme; label: string; icon: string }> = [
 export default function Settings() {
   const { toast } = useToast()
   const [settings, setSettings] = useState<SettingsDTO | null>(null)
+  const [schedule, setSchedule] = useState<UpdateScheduleDTO | null>(null)
+  const [updateCron, setUpdateCron] = useState('')
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
 
   const load = async () => {
+    api.get<UpdateScheduleDTO>('/settings/update-schedule')
+      .then((next) => {
+        setSchedule(next)
+        setUpdateCron(next.setting ?? '')
+      })
+      .catch(() => undefined)
     setSettings(await api.get<SettingsDTO>('/settings'))
   }
 
@@ -32,18 +55,33 @@ export default function Settings() {
 
   const save = async () => {
     if (!settings) return
+    const body: Record<string, string> = {
+      containerName: settings.containerName,
+      refreshInterval: settings.refreshInterval,
+      theme: settings.theme,
+      deleteRecordsOnRemoval: settings.deleteRecordsOnRemoval,
+      syncProxyStatus: settings.syncProxyStatus,
+    }
+    const scheduleChanged = !!schedule && !schedule.readOnly && updateCron.trim() !== (schedule.setting ?? '')
+    if (scheduleChanged) body.updateCron = updateCron.trim()
     try {
-      await api.put('/settings', {
-        containerName: settings.containerName,
-        refreshInterval: settings.refreshInterval,
-        theme: settings.theme,
-        deleteRecordsOnRemoval: settings.deleteRecordsOnRemoval,
-        syncProxyStatus: settings.syncProxyStatus,
-      })
+      const res = await api.put<SaveResult>('/settings', body)
       applyTheme((settings.theme as Theme) ?? 'dark')
+      setScheduleError(null)
       toast('Settings saved.', 'success')
+      if (res?.apply) {
+        const { ok, instances, message, warnings } = res.apply
+        warnings.forEach((w) => toast(w, 'info'))
+        if (!ok) toast(message, 'error')
+        else toast(message, instances ? 'success' : 'info')
+      }
+      if (scheduleChanged) await load()
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Save failed.', 'error')
+      const message = err instanceof Error ? err.message : 'Save failed.'
+      if (scheduleChanged && err instanceof ApiError && (err.status === 422 || err.status === 409)) {
+        setScheduleError(message)
+      }
+      toast(message, 'error')
     }
   }
 
@@ -72,6 +110,48 @@ export default function Settings() {
             Must match DDNS_CONTAINER in docker-compose. Changing here is informational; restart the manager to apply.
           </p>
         </div>
+        {schedule && (
+          <div>
+            <label className="label" htmlFor="update-cron">Update schedule</label>
+            <input
+              id="update-cron"
+              className="input font-mono disabled:cursor-not-allowed disabled:opacity-60"
+              value={schedule.readOnly ? (schedule.environment ?? '') : updateCron}
+              disabled={schedule.readOnly}
+              placeholder="@every 5m (favonia's default)"
+              aria-invalid={scheduleError ? true : undefined}
+              onChange={(e) => {
+                setUpdateCron(e.target.value)
+                setScheduleError(null)
+              }}
+            />
+            {scheduleError && (
+              <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">{scheduleError}</p>
+            )}
+            {schedule.readOnly ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Set by the container&apos;s environment (DDNS_UPDATE_CRON).
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-500">
+                How often each DDNS instance checks your public IP and updates Cloudflare. Leave empty for
+                favonia&apos;s default (every 5 minutes). Use <code>@every &lt;n&gt;m</code> or{' '}
+                <code>@every &lt;n&gt;h</code> (at least 1 minute) or a 5-field cron expression such as{' '}
+                <code>*/2 * * * *</code>. Saving a new schedule applies the configuration and recreates the
+                DDNS instances.
+              </p>
+            )}
+            {schedule.warnings.map((w) => (
+              <p
+                key={w}
+                className="mt-2 rounded-lg bg-amber-100 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+              >
+                <i className="fa-solid fa-triangle-exclamation mr-1" />
+                {w}
+              </p>
+            ))}
+          </div>
+        )}
         <div>
           <label className="label">Dashboard refresh interval (seconds)</label>
           <input

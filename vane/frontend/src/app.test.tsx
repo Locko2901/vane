@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import App from './App'
+import { ApiError } from './api/client'
 import { ToastProvider } from './contexts/ToastContext'
 
 const apiMock = vi.hoisted(() => ({
@@ -14,8 +15,45 @@ const apiMock = vi.hoisted(() => ({
 
 const applyThemeMock = vi.hoisted(() => vi.fn())
 
-vi.mock('./api/client', () => ({ api: apiMock }))
+vi.mock('./api/client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  api: apiMock,
+}))
 vi.mock('./theme', () => ({ applyTheme: applyThemeMock }))
+
+interface ScheduleFixture {
+  effective: string | null
+  source: 'environment' | 'setting' | 'default'
+  setting: string | null
+  environment: string | null
+  readOnly: boolean
+  warnings: string[]
+}
+
+const defaultSchedule: ScheduleFixture = {
+  effective: null,
+  source: 'default',
+  setting: null,
+  environment: null,
+  readOnly: false,
+  warnings: [],
+}
+
+function mockSettingsPage(schedule: Partial<ScheduleFixture> = {}) {
+  apiMock.get.mockImplementation((url: string) => {
+    if (url === '/settings') {
+      return Promise.resolve({
+        containerName: 'cloudflare-ddns',
+        refreshInterval: '15',
+        theme: 'dark',
+        deleteRecordsOnRemoval: 'false',
+        syncProxyStatus: 'true',
+      })
+    }
+    if (url === '/settings/update-schedule') return Promise.resolve({ ...defaultSchedule, ...schedule })
+    throw new Error(`Unexpected GET ${url}`)
+  })
+}
 
 function renderApp(path = '/') {
   return render(
@@ -155,6 +193,7 @@ describe('main UI flows', () => {
           deleteRecordsOnRemoval: 'true',
         })
       }
+      if (url === '/settings/update-schedule') return Promise.resolve(defaultSchedule)
       throw new Error(`Unexpected GET ${url}`)
     })
     apiMock.put.mockResolvedValue({ ok: true })
@@ -173,6 +212,67 @@ describe('main UI flows', () => {
     }))
     expect(applyThemeMock).toHaveBeenCalledWith('dark')
     expect(await screen.findByText('Settings saved.')).toBeTruthy()
+  })
+
+  it('saves a new update schedule and reports the recreated instances', async () => {
+    mockSettingsPage()
+    apiMock.put.mockResolvedValue({
+      ok: true,
+      apply: { ok: true, instances: 2, message: 'cloudflare-ddns-t1 started. cloudflare-ddns-t2 started.', warnings: [] },
+    })
+
+    renderApp('/settings')
+
+    fireEvent.change(await screen.findByLabelText('Update schedule'), { target: { value: ' @every 1m ' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(apiMock.put).toHaveBeenCalledWith('/settings', expect.objectContaining({
+      theme: 'dark',
+      updateCron: '@every 1m',
+    })))
+    expect(await screen.findByText('cloudflare-ddns-t1 started. cloudflare-ddns-t2 started.')).toBeTruthy()
+  })
+
+  it('shows why the API refused a schedule next to the field', async () => {
+    mockSettingsPage()
+    const reason = '"@every 30s" is not supported. Give a whole number of minutes or hours, at least 1 minute: for example @every 1m or @every 2h.'
+    apiMock.put.mockRejectedValue(new ApiError(reason, 422))
+
+    renderApp('/settings')
+
+    const input = await screen.findByLabelText<HTMLInputElement>('Update schedule')
+    fireEvent.change(input, { target: { value: '@every 30s' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(reason)
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(input.value).toBe('@every 30s')
+  })
+
+  it('shows the schedule read-only while DDNS_UPDATE_CRON sets it', async () => {
+    mockSettingsPage({ effective: '@every 1m', source: 'environment', environment: '@every 1m', readOnly: true })
+    apiMock.put.mockResolvedValue({ ok: true })
+
+    renderApp('/settings')
+
+    const input = await screen.findByLabelText<HTMLInputElement>('Update schedule')
+    expect(input.disabled).toBe(true)
+    expect(input.value).toBe('@every 1m')
+    expect(screen.getByText("Set by the container's environment (DDNS_UPDATE_CRON).")).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(apiMock.put).toHaveBeenCalled())
+    expect(apiMock.put.mock.calls[0][1]).not.toHaveProperty('updateCron')
+  })
+
+  it('warns when DDNS_UPDATE_CRON is ignored', async () => {
+    const warning = 'DDNS_UPDATE_CRON is ignored: "@once" would stop favonia from updating your records.'
+    mockSettingsPage({ environment: '@once', warnings: [warning] })
+
+    renderApp('/settings')
+
+    expect(await screen.findByText(warning)).toBeTruthy()
+    expect(screen.getByLabelText<HTMLInputElement>('Update schedule').disabled).toBe(false)
   })
 
   it('lists SRV records with their sync state', async () => {
