@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.1](https://github.com/Locko2901/vane/compare/v1.4.0...v1.4.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **deps:** Dependabot's open updates in one, without the major versions ([#64](https://github.com/Locko2901/vane/issues/64)) ([cb9d52e](https://github.com/Locko2901/vane/commit/cb9d52eb79d5c64bce34e5e1ba48ebe4c2902af3))
+
+
+### Build System
+
+* **deps-dev:** bump the frontend-dev group across 1 directory with 2 updates ([#71](https://github.com/Locko2901/vane/issues/71)) ([d611461](https://github.com/Locko2901/vane/commit/d6114617d9138bb93370379af52857259bb6664f))
+* **deps:** bump body-parser from 2.3.0 to 2.4.0 in /vane/backend ([#66](https://github.com/Locko2901/vane/issues/66)) ([3d3e2bd](https://github.com/Locko2901/vane/commit/3d3e2bd6dbd827b3ee49ea4651a09b9ce592407b))
+* **deps:** bump the backend-prod group across 1 directory with 2 updates ([#70](https://github.com/Locko2901/vane/issues/70)) ([e31d054](https://github.com/Locko2901/vane/commit/e31d054b271b24db068c1bd05ccb86f41ad534a5))
+* **deps:** bump zod from 3.25.76 to 4.6.6 in /vane/backend ([#65](https://github.com/Locko2901/vane/issues/65)) ([e648573](https://github.com/Locko2901/vane/commit/e648573d3e4dbe1a3eeeee0d2be85985dd77344c))
+
+
+### CI
+
+* **dependabot:** Prisma 7 held back until it is migrated ([#69](https://github.com/Locko2901/vane/issues/69)) ([0577c24](https://github.com/Locko2901/vane/commit/0577c246f2f904e52cb601ae2ac51649bb289f02))
+
 ## [1.4.0](https://github.com/Locko2901/vane/compare/v1.3.0...v1.4.0) (2026-10-06)
 
 
