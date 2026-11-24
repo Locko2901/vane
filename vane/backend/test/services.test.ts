@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { overrideProperty, stubDocker } from './helpers'
+import { overrideProperty, stubDocker, type CreatedContainer } from './helpers'
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vane-backend-services-'))
 const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vane-backend-config-'))
@@ -250,5 +250,55 @@ void test('healthService.getHealth covers every enabled host, not just the first
     assert.equal(dnsCalls.length, 2)
   } finally {
     for (const restoreOne of restore.reverse()) restoreOne()
+  }
+})
+
+void test('dockerService copies the template\'s vane.child labels to each instance without the prefix, and its own labels win', async () => {
+  const { dockerService } = await modulesPromise
+  const { config } = await import('../src/config')
+  const created: CreatedContainer[] = []
+  const restore = stubDocker([{
+    name: config.ddnsContainer,
+    state: 'exited',
+    status: 'Exited (0)',
+    labels: {
+      'vane.child.monitor.enable': 'true',
+      'vane.child.com.example.team': 'dns',
+      'vane.child.': 'skipped',
+      'vane.child.vane.managed': 'false',
+      'vane.child.vane.token-id': '99',
+      'com.docker.compose.service': 'cloudflare-ddns',
+      'monitor.interval': '60',
+    },
+  }], created)
+
+  try {
+    const results = await dockerService.recreateInstances([
+      { tokenId: 11, env: { CLOUDFLARE_API_TOKEN: 'token-1' } },
+      { tokenId: 12, env: { CLOUDFLARE_API_TOKEN: 'token-2' } },
+    ])
+    assert.ok(results.every((r) => r.recreated))
+    assert.deepEqual(created.map((c) => [c.name, c.labels]), [11, 12].map((id) => [
+      dockerService.containerNameForToken(id),
+      { 'monitor.enable': 'true', 'com.example.team': 'dns', 'vane.managed': 'true', 'vane.token-id': String(id) },
+    ]))
+  } finally {
+    restore()
+  }
+})
+
+void test('dockerService gives instances only its own labels when the template has no vane.child labels', async () => {
+  const { dockerService } = await modulesPromise
+  const { config } = await import('../src/config')
+  const created: CreatedContainer[] = []
+  const restore = stubDocker([{
+    name: config.ddnsContainer, state: 'exited', status: 'Exited (0)', labels: { 'monitor.enable': 'true' },
+  }], created)
+
+  try {
+    await dockerService.recreateInstances([{ tokenId: 11, env: { CLOUDFLARE_API_TOKEN: 'token-1' } }])
+    assert.deepEqual(created.map((c) => c.labels), [{ 'vane.managed': 'true', 'vane.token-id': '11' }])
+  } finally {
+    restore()
   }
 })

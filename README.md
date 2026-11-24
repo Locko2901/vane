@@ -394,6 +394,15 @@ docker compose up -d --build vane
 > containers. They are labelled `vane.managed=true` and are created on
 > the same network as the template container.
 
+> **Labels on the per-token containers:** labels on the template container
+> named `vane.child.<label>` are copied to every `cloudflare-ddns-t<id>`
+> container with the prefix removed (`vane.child.monitor.enable=true` gives each
+> one `monitor.enable=true`), so tools that read labels can watch the running
+> containers without picking up the stopped template. After changing them
+> (`docker compose up -d cloudflare-ddns` recreates the template), click
+> **Save & Restart** to recreate the containers with the new labels; **Restart
+> DDNS** on the dashboard keeps the old ones.
+
 ### Performance and resource use
 
 Running one favonia container per token is a deliberate **convenience and

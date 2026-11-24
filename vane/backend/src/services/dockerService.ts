@@ -48,6 +48,19 @@ interface TemplateSpec {
   restartPolicy: Docker.HostRestartPolicy
   dns: string[]
   networks: string[]
+  childLabels: Record<string, string>
+}
+
+const CHILD_LABEL_PREFIX = 'vane.child.'
+
+function childLabels(labels: Record<string, string> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(labels ?? {})) {
+    if (!key.startsWith(CHILD_LABEL_PREFIX)) continue
+    const name = key.slice(CHILD_LABEL_PREFIX.length)
+    if (name) out[name] = value
+  }
+  return out
 }
 
 async function getTemplateSpec(): Promise<TemplateSpec> {
@@ -58,6 +71,7 @@ async function getTemplateSpec(): Promise<TemplateSpec> {
       restartPolicy: info.HostConfig.RestartPolicy ?? { Name: 'unless-stopped' },
       dns: info.HostConfig.Dns ?? [],
       networks: Object.keys(info.NetworkSettings.Networks ?? {}).slice(0, 1),
+      childLabels: childLabels(info.Config.Labels),
     }
   } catch {
     return {
@@ -65,6 +79,7 @@ async function getTemplateSpec(): Promise<TemplateSpec> {
       restartPolicy: { Name: 'unless-stopped' },
       dns: ['1.1.1.1', '1.0.0.1'],
       networks: [],
+      childLabels: {},
     }
   }
 }
@@ -134,6 +149,7 @@ async function recreateInstance(
       Image: spec.image,
       Env: Object.entries(env).map(([k, v]) => `${k}=${v}`),
       Labels: {
+        ...spec.childLabels,
         'vane.managed': 'true',
         'vane.token-id': String(tokenId),
       },

@@ -28,27 +28,34 @@ export interface StubContainer {
   state: string
   status: string
   env?: string[]
+  labels?: Record<string, string>
+}
+
+export interface CreatedContainer {
+  name: string
+  env: string[]
+  labels?: Record<string, string>
 }
 
 export function stubDocker(
   containers: StubContainer[] = [],
-  created: Array<{ name: string; env: string[] }> = [],
+  created: CreatedContainer[] = [],
 ): () => void {
   const notFound = Object.assign(new Error('no such container'), { statusCode: 404 })
   const restore = [
     overrideProperty(Docker.prototype, 'listContainers', (() => Promise.resolve(
       containers.map((c) => ({ Names: [`/${c.name}`], State: c.state, Status: c.status })),
     )) as never),
-    overrideProperty(Docker.prototype, 'createContainer', ((options: { name: string; Env: string[] }) => {
-      created.push({ name: options.name, env: options.Env })
+    overrideProperty(Docker.prototype, 'createContainer', ((options: { name: string; Env: string[]; Labels?: Record<string, string> }) => {
+      created.push({ name: options.name, env: options.Env, labels: options.Labels })
       return Promise.resolve({})
     }) as never),
     overrideProperty(Docker.prototype, 'getContainer', ((name: string) => ({
       inspect: () => {
-        const found = containers.find((c) => c.name === name && c.env)
+        const found = containers.find((c) => c.name === name && (c.env ?? c.labels))
         if (!found) return Promise.reject(notFound)
         return Promise.resolve({
-          Config: { Env: found.env, Image: 'favonia/cloudflare-ddns:latest' },
+          Config: { Env: found.env ?? [], Image: 'favonia/cloudflare-ddns:latest', Labels: found.labels ?? {} },
           State: { Running: found.state === 'running', Status: found.state },
           HostConfig: {},
           NetworkSettings: { Networks: {} },
