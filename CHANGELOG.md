@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Locko2901/vane/compare/v1.4.1...v1.5.0) (2026-11-24)
+
+
+### Features
+
+* **docker:** copy the template's vane.child.&lt;label&gt; labels onto every DDNS container ([#81](https://github.com/Locko2901/vane/issues/81)) ([eb9ace4](https://github.com/Locko2901/vane/commit/eb9ace4ed20bdc0b6c692df212d2a110bdf7523f))
+
 ## [1.4.1](https://github.com/Locko2901/vane/compare/v1.4.0...v1.4.1) (2026-10-29)
 
 
